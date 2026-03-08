@@ -110,7 +110,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         tag: postType === "audio" ? audioTag : undefined,
       });
 
-      toast({ title: "Your moment has been posted to the globe ✨" });
+      toast({ title: "Your arc has been traced to the globe ✨" });
       onPostCreated();
       resetForm();
       onClose();
