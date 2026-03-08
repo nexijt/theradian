@@ -132,21 +132,21 @@ export function useFeed() {
   return { currentPosts, loading, loadInitial, loadNextSpin };
 }
 
-// Ensure no two posts from same location appear in the same batch
-function filterByLocation(posts: FeedPost[]): FeedPost[] {
+// Split posts so no two from same rounded location appear in one batch; extras go to deferred
+function splitByLocation(posts: FeedPost[], max: number): { visible: FeedPost[]; deferred: FeedPost[] } {
   const seen = new Set<string>();
-  const result: FeedPost[] = [];
+  const visible: FeedPost[] = [];
   const deferred: FeedPost[] = [];
 
   for (const post of posts) {
     const key = `${Math.round(post.lat)},${Math.round(post.lon)}`;
-    if (seen.has(key)) {
+    if (seen.has(key) || visible.length >= max) {
       deferred.push(post);
     } else {
       seen.add(key);
-      result.push(post);
+      visible.push(post);
     }
   }
 
-  return result;
+  return { visible, deferred };
 }
