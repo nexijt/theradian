@@ -329,13 +329,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
       } else if (!pausedRef.current && !drag.isDragging) {
         drag.rotVel *= 0.92;
         spinGroup.rotation.y += drag.rotVel;
-
-        // Check for spin completion during inertia
-        const delta = Math.abs(spinGroup.rotation.y - drag.lastSpinY);
-        if (delta > Math.PI / 2) {
-          drag.lastSpinY = spinGroup.rotation.y;
-          onSpinCompleteRef.current?.();
-        }
       }
       renderer.render(scene, camera);
       drawOverlay();
