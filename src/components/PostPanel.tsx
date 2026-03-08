@@ -11,7 +11,7 @@ export default function PostPanel({ post, onClose }: PostPanelProps) {
   if (!post) return null;
 
   const isOpen = !!post;
-  const locationText = post.location && post.location !== "Unknown" ? post.location : `${post.lat.toFixed(1)}°, ${post.lon.toFixed(1)}°`;
+  const locationText = post.location && post.location !== "Unknown" ? post.location : "Somewhere on Earth";
 
   return (
     <div
