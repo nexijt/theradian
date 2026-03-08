@@ -16,7 +16,7 @@ const Index = () => {
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
-  const [activeCount, setActiveCount] = useState(247);
+  const [activeCount, setActiveCount] = useState(Math.floor(Math.random() * 11) + 15);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -30,7 +30,7 @@ const Index = () => {
 
   useEffect(() => {
     const iv = setInterval(() => {
-      setActiveCount((c) => c + Math.floor(Math.random() * 6) - 2);
+      setActiveCount((c) => Math.max(15, Math.min(25, c + Math.floor(Math.random() * 3) - 1)));
     }, 3500);
     return () => clearInterval(iv);
   }, []);

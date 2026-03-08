@@ -15,6 +15,7 @@ export interface FeedPost {
   mediaUrl?: string;
   displayName?: string;
   tag?: string;
+  createdAt: string; // ISO string for ordering
 }
 
 function dbPostToFeedPost(post: PostWithProfile): FeedPost {
@@ -32,6 +33,7 @@ function dbPostToFeedPost(post: PostWithProfile): FeedPost {
     mediaUrl: post.media_url,
     displayName: post.display_name || undefined,
     tag: post.tag || undefined,
+    createdAt: post.created_at,
   };
 }
 
@@ -88,6 +90,7 @@ export function useFeed() {
           time: p.time,
           type: p.type === "dot" ? "dot" : p.type as "photo" | "audio",
           category: "category" in p ? (p as any).category : undefined,
+          createdAt: new Date().toISOString(),
         } as FeedPost));
         setCurrentPosts(mocks);
         hasMoreRef.current = false;
@@ -107,6 +110,7 @@ export function useFeed() {
         time: p.time,
         type: p.type === "dot" ? "dot" : p.type as "photo" | "audio",
         category: "category" in p ? (p as any).category : undefined,
+        createdAt: new Date().toISOString(),
       } as FeedPost));
       setCurrentPosts(mocks);
       hasMoreRef.current = false;

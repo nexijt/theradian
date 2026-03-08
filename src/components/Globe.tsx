@@ -8,8 +8,7 @@ const LINE_MAX = 80;
 const EASE = 0.065;
 const LAG_SPEED = 0.045;
 const OVERLAP_THRESH = 55;
-const MAX_VISIBLE = 25;
-const MIN_VISIBLE = 15;
+const WINDOW_SIZE = 10; // Max posts visible at once
 
 function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
   const latR = lat * (Math.PI / 180);
@@ -38,6 +37,7 @@ interface PostObject {
   lineLengthMult: number;
   isHidden: boolean;
   facing: number;
+  dateIndex: number; // index in date-sorted array
 }
 
 interface GlobeProps {
@@ -65,7 +65,14 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     autoRotate: true,
     arTimer: null as ReturnType<typeof setTimeout> | null,
     prevX: 0,
+    lastRotY: 0, // track rotation for window cursor
   });
+  // Window cursor: which date-index is the "center" of the visible window
+  // Posts are sorted newest first (index 0 = newest). 
+  // Clockwise drag (positive rotVel) = move cursor forward (older posts)
+  // Counter-clockwise = move cursor backward (newer posts)
+  const windowCursorRef = useRef(0);
+  const rotAccumRef = useRef(0); // accumulated rotation since last cursor shift
 
   const postsRef = useRef(posts);
   postsRef.current = posts;
@@ -193,8 +200,8 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     const _nrm = new THREE.Vector3();
     const _mat3 = new THREE.Matrix3();
 
-    // Track how many visible posts we see — if all have been "seen", request more
-    let allSeenCount = 0;
+    // Rotation threshold to shift window by 1 post
+    const ROT_PER_SHIFT = 0.35; // radians (~20 degrees per post shift)
 
     function drawOverlay() {
       const s = sceneRef.current;
@@ -202,54 +209,61 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
       ctx2d.clearRect(0, 0, W(), H());
       _mat3.getNormalMatrix(spinGroup.matrixWorld);
 
-      // First pass: compute facing values for all posts
-      s.postObjects.forEach((p) => {
-        _wPos.copy(p.localPos).applyMatrix4(spinGroup.matrixWorld);
-        _nrm.copy(p.localPos).normalize().applyMatrix3(_mat3).normalize();
-        const toCam = camera.position.clone().sub(_wPos).normalize();
-        p.facing = toCam.dot(_nrm);
-      });
+      const totalPosts = s.postObjects.length;
+      if (totalPosts === 0) return;
 
-      // Sort by facing (most visible first) and pick top MAX_VISIBLE
-      const sorted = [...s.postObjects].sort((a, b) => b.facing - a.facing);
-      const visibleSet = new Set<PostObject>();
-      for (let i = 0; i < sorted.length && visibleSet.size < MAX_VISIBLE; i++) {
-        if (sorted[i].facing > -0.1) {
-          visibleSet.add(sorted[i]);
+      // Track rotation delta to shift window cursor
+      const currentRotY = spinGroup.rotation.y;
+      const rotDelta = currentRotY - drag.lastRotY;
+      drag.lastRotY = currentRotY;
+
+      rotAccumRef.current += rotDelta;
+
+      // Clockwise spin (negative rotDelta in Three.js default) → older posts (cursor++)
+      // Counter-clockwise → newer posts (cursor--)
+      // In our setup, dragging right = positive rotVel = spinGroup.rotation.y increases
+      // That's counter-clockwise from top view = going to newer posts
+      if (Math.abs(rotAccumRef.current) >= ROT_PER_SHIFT) {
+        const shifts = Math.floor(Math.abs(rotAccumRef.current) / ROT_PER_SHIFT);
+        if (rotAccumRef.current > 0) {
+          // Counter-clockwise (drag right) → newer posts (cursor--)
+          windowCursorRef.current -= shifts;
+        } else {
+          // Clockwise (drag left) → older posts (cursor++)
+          windowCursorRef.current += shifts;
         }
-      }
+        rotAccumRef.current = rotAccumRef.current % ROT_PER_SHIFT;
 
-      // Update isHidden
-      s.postObjects.forEach((p) => {
-        p.isHidden = !visibleSet.has(p);
-      });
+        // Wrap around
+        windowCursorRef.current = ((windowCursorRef.current % totalPosts) + totalPosts) % totalPosts;
 
-      // Count how many are currently front-facing (facing > 0.3) and visible
-      let frontFacing = 0;
-      s.postObjects.forEach((p) => {
-        if (!p.isHidden && p.facing > 0.3) frontFacing++;
-      });
-
-      // If very few posts are front-facing, request more data
-      if (frontFacing < MIN_VISIBLE && s.postObjects.length > 0) {
-        allSeenCount++;
-        if (allSeenCount > 60) { // ~1 second of frames
-          allSeenCount = 0;
+        // Request more posts when cursor approaches the end
+        if (windowCursorRef.current + WINDOW_SIZE >= totalPosts - 5) {
           onNeedMoreRef.current?.();
         }
-      } else {
-        allSeenCount = 0;
       }
 
-      // Second pass: render
+      // Determine visible window (wrapping)
+      const visibleIndices = new Set<number>();
+      for (let i = 0; i < Math.min(WINDOW_SIZE, totalPosts); i++) {
+        visibleIndices.add((windowCursorRef.current + i) % totalPosts);
+      }
+
+      // Update isHidden based on window
+      s.postObjects.forEach((p) => {
+        p.isHidden = !visibleIndices.has(p.dateIndex);
+      });
+
+      // Render pass
       s.postObjects.forEach((p) => {
         _wPos.copy(p.localPos).applyMatrix4(spinGroup.matrixWorld);
         _nrm.copy(p.localPos).normalize().applyMatrix3(_mat3).normalize();
 
         const toCam = camera.position.clone().sub(_wPos).normalize();
         const facing = toCam.dot(_nrm);
+        p.facing = facing;
 
-        // If hidden, fade out quickly
+        // If hidden OR facing away, fade out
         let targetVis: number;
         if (p.isHidden) {
           targetVis = 0;
@@ -431,7 +445,12 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
       ctx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
 
-    s.postObjects = posts.map((post) => {
+    // Sort posts by date: newest first (index 0 = most recent)
+    const sorted = [...posts].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    s.postObjects = sorted.map((post, dateIndex) => {
       const localPos = projectPoint(post.lat, post.lon, RADIUS);
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.007, 8, 8),
@@ -477,8 +496,13 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
         lineLengthMult: 1.0,
         isHidden: true,
         facing: 0,
+        dateIndex,
       };
     });
+
+    // Reset window cursor to 0 (newest posts) when posts change
+    windowCursorRef.current = 0;
+    rotAccumRef.current = 0;
   }, [posts]);
 
   return (
