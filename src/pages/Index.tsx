@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
-  const { currentPosts, loadInitial, loadNextSpin } = useFeed();
+  const { currentPosts, loadInitial } = useFeed();
   const [authModal, setAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
