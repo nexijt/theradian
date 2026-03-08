@@ -10,7 +10,7 @@ export interface FeedPost {
   location: string;
   caption: string;
   time: string;
-  type: "photo" | "audio" | "dot";
+  type: "photo" | "audio";
   category?: string;
   mediaUrl?: string;
   displayName?: string;
