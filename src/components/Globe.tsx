@@ -199,9 +199,10 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     const _wPos = new THREE.Vector3();
     const _nrm = new THREE.Vector3();
     const _mat3 = new THREE.Matrix3();
+    const _toCam = new THREE.Vector3(); // reusable — no per-frame allocs
 
     // Rotation threshold to shift window by 1 post
-    const ROT_PER_SHIFT = 0.35; // radians (~20 degrees per post shift)
+    const ROT_PER_SHIFT = 0.5; // radians (~29 degrees per post shift)
 
     function drawOverlay() {
       const s = sceneRef.current;
@@ -212,32 +213,26 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
       const totalPosts = s.postObjects.length;
       if (totalPosts === 0) return;
 
-      // Track rotation delta to shift window cursor
+      // Only shift window cursor from user drag, NOT auto-rotate
       const currentRotY = spinGroup.rotation.y;
       const rotDelta = currentRotY - drag.lastRotY;
       drag.lastRotY = currentRotY;
 
-      rotAccumRef.current += rotDelta;
+      // Only accumulate rotation when user is dragging or momentum is significant
+      if (drag.isDragging || Math.abs(drag.rotVel) > 0.003) {
+        rotAccumRef.current += rotDelta;
+      }
 
-      // Clockwise spin (negative rotDelta in Three.js default) → older posts (cursor++)
-      // Counter-clockwise → newer posts (cursor--)
-      // In our setup, dragging right = positive rotVel = spinGroup.rotation.y increases
-      // That's counter-clockwise from top view = going to newer posts
       if (Math.abs(rotAccumRef.current) >= ROT_PER_SHIFT) {
         const shifts = Math.floor(Math.abs(rotAccumRef.current) / ROT_PER_SHIFT);
         if (rotAccumRef.current > 0) {
-          // Counter-clockwise (drag right) → newer posts (cursor--)
           windowCursorRef.current -= shifts;
         } else {
-          // Clockwise (drag left) → older posts (cursor++)
           windowCursorRef.current += shifts;
         }
         rotAccumRef.current = rotAccumRef.current % ROT_PER_SHIFT;
-
-        // Wrap around
         windowCursorRef.current = ((windowCursorRef.current % totalPosts) + totalPosts) % totalPosts;
 
-        // Request more posts when cursor approaches the end
         if (windowCursorRef.current + WINDOW_SIZE >= totalPosts - 5) {
           onNeedMoreRef.current?.();
         }
@@ -254,21 +249,28 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
         p.isHidden = !visibleIndices.has(p.dateIndex);
       });
 
-      // Render pass
+      // Render pass — reuse vectors instead of cloning
       s.postObjects.forEach((p) => {
+        // Skip early if hidden and already faded out
+        if (p.isHidden && p.progress <= 0) {
+          p.el.style.display = "none";
+          return;
+        }
+
         _wPos.copy(p.localPos).applyMatrix4(spinGroup.matrixWorld);
         _nrm.copy(p.localPos).normalize().applyMatrix3(_mat3).normalize();
 
-        const toCam = camera.position.clone().sub(_wPos).normalize();
-        const facing = toCam.dot(_nrm);
+        _toCam.copy(camera.position).sub(_wPos).normalize();
+        const facing = _toCam.dot(_nrm);
         p.facing = facing;
 
-        // If hidden OR facing away, fade out
+        // Show posts that are on the front hemisphere (facing > -0.1)
+        // Full visibility when facing > 0.1
         let targetVis: number;
         if (p.isHidden) {
           targetVis = 0;
         } else {
-          targetVis = Math.max(0, Math.min(1, (facing - 0.15) / 0.25));
+          targetVis = Math.max(0, Math.min(1, (facing + 0.1) / 0.2));
         }
 
         p.progress += (targetVis - p.progress) * EASE;
@@ -356,14 +358,13 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
         }
       });
 
-      // Overlap avoidance
-      for (let i = 0; i < s.postObjects.length; i++) {
-        const a = s.postObjects[i];
-        if (a.progress <= 0 || a.lagX === null) continue;
-        for (let j = i + 1; j < s.postObjects.length; j++) {
-          const b = s.postObjects[j];
-          if (b.progress <= 0 || b.lagX === null) continue;
-          const ddx = a.lagX - b.lagX;
+      // Overlap avoidance — only check visible posts
+      const visible = s.postObjects.filter(p => p.progress > 0 && p.lagX !== null);
+      for (let i = 0; i < visible.length; i++) {
+        const a = visible[i];
+        for (let j = i + 1; j < visible.length; j++) {
+          const b = visible[j];
+          const ddx = a.lagX! - b.lagX!;
           const ddy = a.lagY! - b.lagY!;
           const d = Math.sqrt(ddx * ddx + ddy * ddy);
           if (d < OVERLAP_THRESH) {
