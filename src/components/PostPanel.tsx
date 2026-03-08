@@ -63,14 +63,6 @@ export default function PostPanel({ post, onClose }: PostPanelProps) {
         </div>
       )}
 
-      {post.type === "dot" && (
-        <div
-          className="w-full rounded-sm mb-3.5 flex items-center justify-center"
-          style={{ aspectRatio: "4/3", background: "hsl(36 14% 88%)" }}
-        >
-          <span className="font-mono text-[0.6rem] text-muted-foreground tracking-[0.1em]">[ Photo ]</span>
-        </div>
-      )}
 
       <div className="text-[0.93rem] leading-relaxed" style={{ color: "#444" }}>
         {post.caption}
