@@ -388,11 +388,17 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
     const dotsContainer = dotsRef.current;
     if (!s || !dotsContainer) return;
 
-    // Remove old post objects
+    // Hide and remove old post objects — clear overlay immediately to prevent flash
     s.postObjects.forEach((p) => {
+      p.el.style.display = "none";
       s.spinGroup.remove(p.dot);
       p.el.remove();
     });
+    const overlayCanvas = overlayRef.current;
+    if (overlayCanvas) {
+      const ctx = overlayCanvas.getContext("2d");
+      ctx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    }
 
     // Create new post objects
     s.postObjects = posts.map((post) => {
