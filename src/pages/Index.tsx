@@ -16,7 +16,7 @@ const Index = () => {
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
-  const [activeCount, setActiveCount] = useState(247);
+  const [activeCount, setActiveCount] = useState(Math.floor(Math.random() * 11) + 15);
   const { toast } = useToast();
 
   useEffect(() => {
