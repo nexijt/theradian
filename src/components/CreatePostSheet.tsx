@@ -4,7 +4,8 @@ import { trimAudioToSeconds } from "@/lib/audio-utils";
 import { useToast } from "@/hooks/use-toast";
 import ImageCropper from "./ImageCropper";
 
-const AUDIO_TAGS = ["MUSIC", "VA", "WRITING", "SFX"] as const;
+const AUDIO_TAGS = ["MUSIC", "VOICE", "WRITING", "SFX"] as const;
+const PHOTO_TAGS = ["PHOTO", "DESIGN", "WRITING", "MATTER"] as const;
 
 interface CreatePostSheetProps {
   open: boolean;
@@ -21,6 +22,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
   const [showCropper, setShowCropper] = useState(false);
   const [caption, setCaption] = useState("");
   const [audioTag, setAudioTag] = useState<string>("MUSIC");
+  const [photoTag, setPhotoTag] = useState<string>("PHOTO");
   const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -107,7 +109,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         caption,
         latitude: lat,
         longitude: lon,
-        tag: postType === "audio" ? audioTag : undefined,
+        tag: postType === "audio" ? audioTag : photoTag,
       });
 
       toast({ title: "Your arc has been traced to the globe ✨" });
@@ -127,6 +129,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
     setShowCropper(false);
     setCaption("");
     setAudioTag("MUSIC");
+    setPhotoTag("PHOTO");
   };
 
   return (
@@ -210,28 +213,29 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         </div>
       )}
 
-      {/* Audio tag selector */}
-      {postType === "audio" && (
-        <div className="mb-5">
-          <label className="block font-mono text-[0.58rem] tracking-[0.12em] uppercase text-muted-foreground mb-2">
-            Tag
-          </label>
-          <div className="flex gap-1.5 flex-wrap">
-            {AUDIO_TAGS.map((tag) => (
+      {/* Tag selector */}
+      <div className="mb-5">
+        <label className="block font-mono text-[0.58rem] tracking-[0.12em] uppercase text-muted-foreground mb-2">
+          Tag
+        </label>
+        <div className="flex gap-1.5 flex-wrap">
+          {(postType === "audio" ? AUDIO_TAGS : PHOTO_TAGS).map((tag) => {
+            const selected = postType === "audio" ? audioTag === tag : photoTag === tag;
+            return (
               <button
                 key={tag}
                 className={`font-mono text-[0.52rem] tracking-[0.1em] uppercase px-3 py-1.5 rounded-sm border transition-all ${
-                  audioTag === tag ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
+                  selected ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
                 }`}
-                style={audioTag !== tag ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
-                onClick={() => setAudioTag(tag)}
+                style={!selected ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
+                onClick={() => postType === "audio" ? setAudioTag(tag) : setPhotoTag(tag)}
               >
                 [{tag}]
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Caption */}
       <div className="mb-5">
