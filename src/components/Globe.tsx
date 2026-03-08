@@ -8,6 +8,8 @@ const LINE_MAX = 80;
 const EASE = 0.065;
 const LAG_SPEED = 0.045;
 const OVERLAP_THRESH = 55;
+const MAX_VISIBLE = 25;
+const MIN_VISIBLE = 15;
 
 function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
   const latR = lat * (Math.PI / 180);
@@ -34,15 +36,18 @@ interface PostObject {
   _drawnX: number;
   _drawnY: number;
   lineLengthMult: number;
+  isHidden: boolean;
+  facing: number;
 }
 
 interface GlobeProps {
   posts: FeedPost[];
   onPostClick: (post: FeedPost) => void;
   paused?: boolean;
+  onNeedMore?: () => void;
 }
 
-export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
+export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
@@ -60,7 +65,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
     autoRotate: true,
     arTimer: null as ReturnType<typeof setTimeout> | null,
     prevX: 0,
-    lastSpinY: 0,
   });
 
   const postsRef = useRef(posts);
@@ -69,6 +73,8 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
   onPostClickRef.current = onPostClick;
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+  const onNeedMoreRef = useRef(onNeedMore);
+  onNeedMoreRef.current = onNeedMore;
 
   const W = useCallback(() => window.innerWidth, []);
   const H = useCallback(() => window.innerHeight, []);
@@ -88,19 +94,16 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
     camera.position.set(0, 0, 3.8);
     camera.lookAt(0, 0, 0);
 
-    // Solid blocker
     const solidMesh = new THREE.Mesh(
       new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
       new THREE.MeshBasicMaterial({ color: 0xf4f1eb, depthWrite: true })
     );
 
-    // Grid
     const wireMesh = new THREE.LineSegments(
       new THREE.WireframeGeometry(new THREE.SphereGeometry(RADIUS * 1.001, 36, 24)),
       new THREE.LineBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0.15 })
     );
 
-    // Outlines
     const outlineMat = new THREE.LineBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0.72 });
     const outlineGroup = new THREE.Group();
     CONTINENT_OUTLINES.forEach((coords) => {
@@ -119,7 +122,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
 
     sceneRef.current = { renderer, scene, camera, spinGroup, postObjects: [] };
 
-    // Resize
     function resize() {
       renderer.setSize(W(), H());
       camera.aspect = W() / H();
@@ -130,7 +132,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
     window.addEventListener("resize", resize);
     resize();
 
-    // Drag handlers
     const drag = dragRef.current;
 
     function onMouseDown(e: MouseEvent) {
@@ -179,7 +180,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
     canvas.addEventListener("touchmove", onTouchMove, { passive: true });
     canvas.addEventListener("touchend", onTouchEnd);
 
-    // toScreen helper
     const _prj = new THREE.Vector3();
     function toScreen(worldV3: THREE.Vector3) {
       _prj.copy(worldV3).project(camera);
@@ -189,10 +189,12 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
       };
     }
 
-    // Overlay draw
     const _wPos = new THREE.Vector3();
     const _nrm = new THREE.Vector3();
     const _mat3 = new THREE.Matrix3();
+
+    // Track how many visible posts we see — if all have been "seen", request more
+    let allSeenCount = 0;
 
     function drawOverlay() {
       const s = sceneRef.current;
@@ -200,13 +202,60 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
       ctx2d.clearRect(0, 0, W(), H());
       _mat3.getNormalMatrix(spinGroup.matrixWorld);
 
+      // First pass: compute facing values for all posts
+      s.postObjects.forEach((p) => {
+        _wPos.copy(p.localPos).applyMatrix4(spinGroup.matrixWorld);
+        _nrm.copy(p.localPos).normalize().applyMatrix3(_mat3).normalize();
+        const toCam = camera.position.clone().sub(_wPos).normalize();
+        p.facing = toCam.dot(_nrm);
+      });
+
+      // Sort by facing (most visible first) and pick top MAX_VISIBLE
+      const sorted = [...s.postObjects].sort((a, b) => b.facing - a.facing);
+      const visibleSet = new Set<PostObject>();
+      for (let i = 0; i < sorted.length && visibleSet.size < MAX_VISIBLE; i++) {
+        if (sorted[i].facing > -0.1) {
+          visibleSet.add(sorted[i]);
+        }
+      }
+
+      // Update isHidden
+      s.postObjects.forEach((p) => {
+        p.isHidden = !visibleSet.has(p);
+      });
+
+      // Count how many are currently front-facing (facing > 0.3) and visible
+      let frontFacing = 0;
+      s.postObjects.forEach((p) => {
+        if (!p.isHidden && p.facing > 0.3) frontFacing++;
+      });
+
+      // If very few posts are front-facing, request more data
+      if (frontFacing < MIN_VISIBLE && s.postObjects.length > 0) {
+        allSeenCount++;
+        if (allSeenCount > 60) { // ~1 second of frames
+          allSeenCount = 0;
+          onNeedMoreRef.current?.();
+        }
+      } else {
+        allSeenCount = 0;
+      }
+
+      // Second pass: render
       s.postObjects.forEach((p) => {
         _wPos.copy(p.localPos).applyMatrix4(spinGroup.matrixWorld);
         _nrm.copy(p.localPos).normalize().applyMatrix3(_mat3).normalize();
 
         const toCam = camera.position.clone().sub(_wPos).normalize();
         const facing = toCam.dot(_nrm);
-        const targetVis = Math.max(0, Math.min(1, (facing + 0.03) / 0.20));
+
+        // If hidden, fade out quickly
+        let targetVis: number;
+        if (p.isHidden) {
+          targetVis = 0;
+        } else {
+          targetVis = Math.max(0, Math.min(1, (facing + 0.03) / 0.20));
+        }
 
         p.progress += (targetVis - p.progress) * EASE;
         if (p.progress < 0.003) p.progress = 0;
@@ -225,7 +274,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
         const eased = easeInOut(prog);
         (p.dot.material as THREE.MeshBasicMaterial).opacity = p.data.type === "dot" ? 0 : Math.min(0.45, prog * 1.5);
 
-        // Normal projection for line direction
         const normalWorld = _nrm.clone();
         const tipWorld = _wPos.clone().add(normalWorld.clone().multiplyScalar(0.18));
         const spTip = toScreen(tipWorld);
@@ -320,7 +368,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
       }
     }
 
-    // Animation loop
     let animId: number;
     function animate() {
       animId = requestAnimationFrame(animate);
@@ -335,7 +382,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
     }
     animate();
 
-    // Click handler for dot-type posts on overlay canvas
     overlayCanvas.addEventListener("click", (e) => {
       const s = sceneRef.current;
       if (!s) return;
@@ -373,7 +419,7 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
     const dotsContainer = dotsRef.current;
     if (!s || !dotsContainer) return;
 
-    // Hide and remove old post objects — clear overlay immediately to prevent flash
+    // Remove old post objects
     s.postObjects.forEach((p) => {
       p.el.style.display = "none";
       s.spinGroup.remove(p.dot);
@@ -385,7 +431,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
       ctx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
 
-    // Create new post objects
     s.postObjects = posts.map((post) => {
       const localPos = projectPoint(post.lat, post.lon, RADIUS);
       const dot = new THREE.Mesh(
@@ -430,6 +475,8 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
         _drawnX: 0,
         _drawnY: 0,
         lineLengthMult: 1.0,
+        isHidden: true,
+        facing: 0,
       };
     });
   }, [posts]);

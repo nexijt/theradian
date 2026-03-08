@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
-  const { currentPosts, loadInitial } = useFeed();
+  const { currentPosts, loadInitial, loadMore } = useFeed();
   const [authModal, setAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
@@ -61,21 +61,21 @@ const Index = () => {
   return (
     <div className="w-full h-screen overflow-hidden">
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-9 py-5 z-50 pointer-events-none">
-        <span className="text-xl font-light tracking-[0.28em] uppercase">RADIAN</span>
-        <div className="flex gap-3 pointer-events-auto">
+      <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-9 py-3 sm:py-5 z-50 pointer-events-none">
+        <span className="text-lg sm:text-xl font-light tracking-[0.28em] uppercase">RADIAN</span>
+        <div className="flex gap-2 sm:gap-3 pointer-events-auto">
           {user ? (
             <>
               <button
                 onClick={handleSignOut}
-                className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm border transition-all hover:border-primary hover:text-primary"
+                className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border transition-all hover:border-primary hover:text-primary"
                 style={{ borderColor: "hsl(0 0% 10% / 0.2)" }}
               >
                 Sign out
               </button>
               <button
                 onClick={handlePost}
-                className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm bg-primary text-primary-foreground transition-all hover:bg-primary-light"
+                className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm bg-primary text-primary-foreground transition-all hover:bg-primary-light"
               >
                 Log today
               </button>
@@ -84,14 +84,14 @@ const Index = () => {
             <>
               <button
                 onClick={() => handleOpenAuth("login")}
-                className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm border transition-all hover:border-primary hover:text-primary"
+                className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border transition-all hover:border-primary hover:text-primary"
                 style={{ borderColor: "hsl(0 0% 10% / 0.2)" }}
               >
                 Sign in
               </button>
               <button
                 onClick={handlePost}
-                className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm bg-primary text-primary-foreground transition-all hover:bg-primary-light"
+                className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm bg-primary text-primary-foreground transition-all hover:bg-primary-light"
               >
                 Log today
               </button>
@@ -105,28 +105,29 @@ const Index = () => {
         posts={currentPosts}
         onPostClick={handlePostClick}
         paused={!!selectedPost}
+        onNeedMore={loadMore}
       />
 
       {/* Hint */}
       <div
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 font-mono text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground z-50 pointer-events-none"
+        className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 font-mono text-[0.5rem] sm:text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground z-50 pointer-events-none whitespace-nowrap"
       >
         Drag to explore · Click a dot to see log
       </div>
 
       {/* Live count */}
-      <div className="fixed bottom-8 right-8 z-50 flex items-center gap-2 pointer-events-none">
+      <div className="fixed bottom-6 sm:bottom-8 right-4 sm:right-8 z-50 flex items-center gap-2 pointer-events-none">
         <div
           className="w-[5px] h-[5px] bg-primary rounded-full"
           style={{ animation: "lp 2.5s ease-in-out infinite" }}
         />
-        <span className="font-mono text-[0.56rem] tracking-[0.14em] uppercase text-muted-foreground">
+        <span className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase text-muted-foreground hidden sm:inline">
           {activeCount} active now
         </span>
       </div>
 
       {/* Status indicator */}
-      <div className="fixed bottom-8 left-8 z-50 flex items-center gap-2 pointer-events-none">
+      <div className="fixed bottom-6 sm:bottom-8 left-4 sm:left-8 z-50 flex items-center gap-2 pointer-events-none">
         <div
           className="w-[5px] h-[5px] rounded-full"
           style={{
@@ -134,7 +135,7 @@ const Index = () => {
             animation: navigator.onLine ? "lp 2.5s ease-in-out infinite" : "none",
           }}
         />
-        <span className="font-mono text-[0.56rem] tracking-[0.14em] uppercase text-muted-foreground">
+        <span className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase text-muted-foreground hidden sm:inline">
           Status: {navigator.onLine ? "Connected" : "Disconnected"}
         </span>
       </div>
