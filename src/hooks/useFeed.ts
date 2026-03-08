@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { fetchPosts, type PostWithProfile } from "@/lib/posts";
 import { MOCK_POSTS } from "@/lib/globe-data";
 
@@ -51,7 +51,7 @@ function spreadOverlapping(posts: FeedPost[]): FeedPost[] {
     } else {
       group.forEach((p, i) => {
         const angle = (i / group.length) * Math.PI * 2;
-        const offset = 3 + i * 1.5; // degrees offset
+        const offset = 3 + i * 1.5;
         result.push({
           ...p,
           lat: p.lat + Math.sin(angle) * offset,
@@ -63,15 +63,20 @@ function spreadOverlapping(posts: FeedPost[]): FeedPost[] {
   return result;
 }
 
+const BATCH_SIZE = 50;
+
 export function useFeed() {
   const [currentPosts, setCurrentPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(false);
+  const offsetRef = useRef(0);
+  const hasMoreRef = useRef(true);
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
+    offsetRef.current = 0;
+    hasMoreRef.current = true;
     try {
-      // Load all posts (up to 200)
-      const posts = await fetchPosts(0, 200);
+      const posts = await fetchPosts(0, BATCH_SIZE);
       if (posts.length === 0) {
         const mocks = MOCK_POSTS.map((p, i) => ({
           id: `mock-${i}`,
@@ -85,9 +90,11 @@ export function useFeed() {
           category: "category" in p ? (p as any).category : undefined,
         } as FeedPost));
         setCurrentPosts(mocks);
+        hasMoreRef.current = false;
       } else {
-        const feedPosts = posts.map(dbPostToFeedPost);
-        setCurrentPosts(spreadOverlapping(feedPosts));
+        offsetRef.current = posts.length;
+        hasMoreRef.current = posts.length >= BATCH_SIZE;
+        setCurrentPosts(spreadOverlapping(posts.map(dbPostToFeedPost)));
       }
     } catch {
       const mocks = MOCK_POSTS.map((p, i) => ({
@@ -102,9 +109,29 @@ export function useFeed() {
         category: "category" in p ? (p as any).category : undefined,
       } as FeedPost));
       setCurrentPosts(mocks);
+      hasMoreRef.current = false;
     }
     setLoading(false);
   }, []);
 
-  return { currentPosts, loading, loadInitial };
+  const loadMore = useCallback(async () => {
+    if (!hasMoreRef.current || loading) return;
+    setLoading(true);
+    try {
+      const posts = await fetchPosts(offsetRef.current, BATCH_SIZE);
+      if (posts.length === 0) {
+        hasMoreRef.current = false;
+      } else {
+        offsetRef.current += posts.length;
+        hasMoreRef.current = posts.length >= BATCH_SIZE;
+        const newFeedPosts = spreadOverlapping(posts.map(dbPostToFeedPost));
+        setCurrentPosts(prev => [...prev, ...newFeedPosts]);
+      }
+    } catch {
+      // silently fail
+    }
+    setLoading(false);
+  }, [loading]);
+
+  return { currentPosts, loading, loadInitial, loadMore, hasMore: hasMoreRef.current };
 }
