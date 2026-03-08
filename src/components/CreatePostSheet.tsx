@@ -241,7 +241,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         <textarea
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
-          placeholder="A few words about this moment…"
+          placeholder="Notes on this arc…"
           className="w-full bg-foreground/[0.04] border rounded-sm px-3.5 py-2.5 font-serif text-base text-foreground outline-none transition-colors focus:border-primary resize-none h-20 leading-relaxed"
           style={{ borderColor: "hsl(0 0% 10% / 0.12)" }}
         />
