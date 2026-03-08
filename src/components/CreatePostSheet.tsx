@@ -109,7 +109,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         caption,
         latitude: lat,
         longitude: lon,
-        tag: postType === "audio" ? audioTag : undefined,
+        tag: postType === "audio" ? audioTag : photoTag,
       });
 
       toast({ title: "Your arc has been traced to the globe ✨" });
