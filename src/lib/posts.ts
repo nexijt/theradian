@@ -92,7 +92,8 @@ export async function createPost(params: {
       longitude: params.longitude || null,
       city: params.city || null,
       country: params.country || null,
-    })
+      tag: params.tag || null,
+    } as any)
     .select()
     .single();
 
