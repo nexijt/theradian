@@ -12,7 +12,7 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
   const [tab, setTab] = useState(initialTab);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
