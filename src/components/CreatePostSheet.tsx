@@ -146,7 +146,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         ✕
       </button>
 
-      <h2 className="text-2xl font-light italic mb-1">Today's moment</h2>
+      <h2 className="text-2xl font-light italic mb-1">Today's Arc</h2>
       <p className="font-mono text-[0.58rem] tracking-[0.14em] uppercase text-muted-foreground mb-6">
         One post · Once a day · Placed on the globe
       </p>
