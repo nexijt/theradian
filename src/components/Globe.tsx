@@ -170,11 +170,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
     function onTouchEnd() {
       drag.isDragging = false;
       drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
-      const delta = Math.abs(spinGroup.rotation.y - drag.lastSpinY);
-      if (delta > Math.PI / 2) {
-        drag.lastSpinY = spinGroup.rotation.y;
-        onSpinCompleteRef.current?.();
-      }
     }
 
     canvas.addEventListener("mousedown", onMouseDown);
