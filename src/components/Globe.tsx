@@ -39,11 +39,10 @@ interface PostObject {
 interface GlobeProps {
   posts: FeedPost[];
   onPostClick: (post: FeedPost) => void;
-  onSpinComplete?: () => void;
   paused?: boolean;
 }
 
-export default function Globe({ posts, onPostClick, onSpinComplete, paused }: GlobeProps) {
+export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
@@ -68,8 +67,6 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
   postsRef.current = posts;
   const onPostClickRef = useRef(onPostClick);
   onPostClickRef.current = onPostClick;
-  const onSpinCompleteRef = useRef(onSpinComplete);
-  onSpinCompleteRef.current = onSpinComplete;
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
@@ -155,13 +152,6 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
       if (!drag.isDragging) return;
       drag.isDragging = false;
       drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
-
-      // Check if a full spin segment happened
-      const delta = Math.abs(spinGroup.rotation.y - drag.lastSpinY);
-      if (delta > Math.PI / 2) {
-        drag.lastSpinY = spinGroup.rotation.y;
-        onSpinCompleteRef.current?.();
-      }
     }
     function onTouchStart(e: TouchEvent) {
       drag.isDragging = true;
@@ -180,11 +170,6 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
     function onTouchEnd() {
       drag.isDragging = false;
       drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
-      const delta = Math.abs(spinGroup.rotation.y - drag.lastSpinY);
-      if (delta > Math.PI / 2) {
-        drag.lastSpinY = spinGroup.rotation.y;
-        onSpinCompleteRef.current?.();
-      }
     }
 
     canvas.addEventListener("mousedown", onMouseDown);
@@ -344,13 +329,6 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
       } else if (!pausedRef.current && !drag.isDragging) {
         drag.rotVel *= 0.92;
         spinGroup.rotation.y += drag.rotVel;
-
-        // Check for spin completion during inertia
-        const delta = Math.abs(spinGroup.rotation.y - drag.lastSpinY);
-        if (delta > Math.PI / 2) {
-          drag.lastSpinY = spinGroup.rotation.y;
-          onSpinCompleteRef.current?.();
-        }
       }
       renderer.render(scene, camera);
       drawOverlay();
