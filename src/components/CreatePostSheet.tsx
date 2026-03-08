@@ -22,6 +22,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
   const [showCropper, setShowCropper] = useState(false);
   const [caption, setCaption] = useState("");
   const [audioTag, setAudioTag] = useState<string>("MUSIC");
+  const [photoTag, setPhotoTag] = useState<string>("PHOTO");
   const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
