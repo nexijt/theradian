@@ -227,7 +227,7 @@ export default function Globe({ posts, onPostClick, onSpinComplete }: GlobeProps
         const prog = p.progress;
         if (prog <= 0) {
           p.el.style.display = "none";
-          p.dot.material.opacity = 0;
+          (p.dot.material as THREE.MeshBasicMaterial).opacity = 0;
           p.lagX = null;
           p.lagY = null;
           return;
