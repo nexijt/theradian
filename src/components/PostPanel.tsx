@@ -38,7 +38,7 @@ export default function PostPanel({ post, onClose }: PostPanelProps) {
         @{post.user}
       </div>
       <div className="font-mono text-[0.56rem] text-muted-foreground tracking-[0.1em] mb-4">
-        Today at {post.time}
+        {post.time}
       </div>
 
       {post.type === "photo" && (
