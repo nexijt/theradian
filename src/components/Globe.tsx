@@ -67,8 +67,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
   postsRef.current = posts;
   const onPostClickRef = useRef(onPostClick);
   onPostClickRef.current = onPostClick;
-  const onSpinCompleteRef = useRef(onSpinComplete);
-  onSpinCompleteRef.current = onSpinComplete;
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
