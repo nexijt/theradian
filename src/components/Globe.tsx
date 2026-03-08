@@ -152,7 +152,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
       if (!drag.isDragging) return;
       const dx = e.clientX - drag.prevX;
       if (Math.abs(dx) > 2) drag.dragMoved = true;
-      drag.rotVel = Math.max(-0.06, Math.min(0.06, dx * 0.005));
+      drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
       spinGroup.rotation.y += drag.rotVel;
       drag.prevX = e.clientX;
     }
