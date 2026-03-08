@@ -288,7 +288,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
 
         const sp = toScreen(_wPos);
         const eased = easeInOut(prog);
-        (p.dot.material as THREE.MeshBasicMaterial).opacity = p.data.type === "dot" ? 0 : Math.min(0.45, prog * 1.5);
+        (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(0.45, prog * 1.5);
 
         const normalWorld = _nrm.clone();
         const tipWorld = _wPos.clone().add(normalWorld.clone().multiplyScalar(0.18));
@@ -333,26 +333,11 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
         const dotFadeStart = 0.55;
         if (prog > dotFadeStart) {
           const dotAlpha = Math.min(1, (prog - dotFadeStart) / 0.25);
-          if (p.data.type === "dot") {
-            p._drawnX = midX;
-            p._drawnY = midY;
-            ctx2d.beginPath();
-            ctx2d.arc(midX, midY, 4, 0, Math.PI * 2);
-            ctx2d.fillStyle = `rgba(26,74,255,${dotAlpha})`;
-            ctx2d.fill();
-            ctx2d.beginPath();
-            ctx2d.arc(midX, midY, 7, 0, Math.PI * 2);
-            ctx2d.strokeStyle = `rgba(26,74,255,${dotAlpha * 0.22})`;
-            ctx2d.lineWidth = 1.5;
-            ctx2d.stroke();
-            p.el.style.display = "none";
-          } else {
-            p.el.style.display = "block";
-            p.el.style.left = midX + "px";
-            p.el.style.top = midY + "px";
-            p.el.style.opacity = String(dotAlpha);
-            p.el.style.pointerEvents = dotAlpha > 0.4 ? "all" : "none";
-          }
+          p.el.style.display = "block";
+          p.el.style.left = midX + "px";
+          p.el.style.top = midY + "px";
+          p.el.style.opacity = String(dotAlpha);
+          p.el.style.pointerEvents = dotAlpha > 0.4 ? "all" : "none";
         } else {
           p.el.style.display = "none";
         }
@@ -397,23 +382,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     }
     animate();
 
-    overlayCanvas.addEventListener("click", (e) => {
-      const s = sceneRef.current;
-      if (!s) return;
-      const rect = overlayCanvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      let hit: PostObject | null = null;
-      let bestDist = 16;
-      s.postObjects.forEach((p) => {
-        if (p.data.type !== "dot" || p.progress <= 0.55) return;
-        const dist = Math.sqrt((mx - p._drawnX) ** 2 + (my - p._drawnY) ** 2);
-        if (dist < bestDist) { bestDist = dist; hit = p; }
-      });
-      if (hit) {
-        onPostClickRef.current((hit as PostObject).data);
-      }
-    });
+    // No canvas click handler needed — all posts use HTML elements with click handlers
 
     return () => {
       cancelAnimationFrame(animId);
