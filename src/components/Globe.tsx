@@ -43,7 +43,7 @@ interface GlobeProps {
   paused?: boolean;
 }
 
-export default function Globe({ posts, onPostClick, onSpinComplete }: GlobeProps) {
+export default function Globe({ posts, onPostClick, onSpinComplete, paused }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
