@@ -32,7 +32,7 @@ export default function PostPanel({ post, onClose }: PostPanelProps) {
       </button>
 
       <div className="font-mono text-[0.58rem] tracking-[0.14em] uppercase text-primary mb-2.5">
-        {locationText}
+        {post.tag ? `[${post.tag}] ${locationText}` : locationText}
       </div>
       <div className="text-lg font-light italic mb-1">
         @{post.user}
