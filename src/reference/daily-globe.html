@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbit — Daily Moments</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Geist+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --bg:#f4f1eb; --ink:#1a1a1a; --blue:#1a4aff;
+    --blue-light:#4d73ff; --muted:#888; --panel-bg:rgba(244,241,235,0.97);
+  }
+  html,body { width:100%; height:100%; background:var(--bg); color:var(--ink); font-family:'Cormorant Garamond',serif; overflow:hidden; }
+  body::after {
+    content:''; position:fixed; inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:100; opacity:0.45;
+  }
+  nav { position:fixed; top:0; left:0; right:0; display:flex; align-items:center; justify-content:space-between; padding:22px 36px; z-index:50; pointer-events:none; }
+  .logo { font-size:1.2rem; font-weight:300; letter-spacing:0.28em; text-transform:uppercase; }
+  .nav-actions { display:flex; gap:12px; pointer-events:all; }
+  .btn { font-family:'Geist Mono',monospace; font-size:0.63rem; letter-spacing:0.12em; text-transform:uppercase; padding:8px 18px; border-radius:2px; cursor:pointer; border:1px solid transparent; transition:all 0.2s; }
+  .btn-ghost { background:transparent; border-color:rgba(26,26,26,0.2); color:var(--ink); }
+  .btn-ghost:hover { border-color:var(--blue); color:var(--blue); }
+  .btn-solid { background:var(--blue); color:#fff; }
+  .btn-solid:hover { background:var(--blue-light); }
+  #globe-canvas { position:fixed; inset:0; width:100%; height:100%; cursor:grab; z-index:1; }
+  #globe-canvas:active { cursor:grabbing; }
+  #overlay-canvas { position:fixed; inset:0; pointer-events:none; z-index:5; }
+  #dots-container { position:fixed; inset:0; pointer-events:none; z-index:10; }
+  /* Base marker */
+  .post-dot { position:absolute; transform:translate(-50%,-50%); cursor:pointer; pointer-events:all; }
+
+  /* Plain blue dot — larger invisible hitbox */
+  .post-dot.type-dot { width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .post-dot.type-dot::after { content:''; display:block; width:8px; height:8px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 2.5px rgba(26,74,255,0.18); transition:background 0.15s, transform 0.15s; }
+  .post-dot.type-dot:hover::after { background:var(--blue-light); transform:scale(1.35); }
+
+  /* Photo card — narrower, stacked layout */
+  .post-dot.type-photo { background:rgba(250,248,244,0.97); border:1px solid rgba(26,74,255,0.22); border-radius:6px; padding:4px 7px 5px; display:flex; flex-direction:column; align-items:center; gap:2px; backdrop-filter:blur(6px); transition:border-color 0.15s, box-shadow 0.15s; }
+  .post-dot.type-photo:hover { border-color:var(--blue); box-shadow:0 2px 12px rgba(26,74,255,0.12); }
+  .photo-label { display:block; font-family:'Geist Mono',monospace; font-size:0.44rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--blue); text-align:center; width:100%; }
+  .photo-snippet { display:block; font-family:'Cormorant Garamond',serif; font-size:0.66rem; font-style:italic; color:#666; white-space:nowrap; max-width:78px; overflow:hidden; text-overflow:ellipsis; text-align:center; width:100%; }
+
+  /* Voice circle — fully centered content */
+  .post-dot.type-voice { width:54px; height:54px; border-radius:50%; background:rgba(238,238,248,0.97); border:1px solid rgba(26,74,255,0.22); display:flex; flex-direction:column; align-items:center; justify-content:center; padding-top:13px; gap:5px; backdrop-filter:blur(6px); transition:border-color 0.15s, box-shadow 0.15s; overflow:hidden; }
+  .post-dot.type-voice:hover { border-color:var(--blue); box-shadow:0 2px 14px rgba(26,74,255,0.13); }
+  .voice-category { display:block; font-family:'Geist Mono',monospace; font-size:0.42rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--blue); line-height:1; text-align:center; width:100%; }
+  /* Bars grow outward from center — use scaleY with transform-origin:center */
+  .voice-bars { display:flex; align-items:center; justify-content:center; gap:2px; height:18px; width:100%; margin-top:3px; }
+  .voice-bar { width:2.5px; height:14px; border-radius:2px; background:var(--blue); opacity:0.7; transform-origin:center; animation:barCenter var(--dur) ease-in-out infinite alternate; }
+  @keyframes barCenter { from { transform:scaleY(0.12); } to { transform:scaleY(1); } }
+  .hint { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); font-family:'Geist Mono',monospace; font-size:0.58rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); opacity:1; transition:opacity 1.2s; z-index:50; pointer-events:none; }
+  .post-panel { position:fixed; top:50%; right:32px; transform:translateY(-50%) translateX(calc(100% + 48px)); width:290px; background:var(--panel-bg); border:1px solid rgba(26,26,26,0.09); border-radius:4px; padding:28px 24px; z-index:60; transition:transform 0.45s cubic-bezier(0.22,1,0.36,1); backdrop-filter:blur(10px); }
+  .post-panel.open { transform:translateY(-50%) translateX(0); }
+  .post-panel-close { position:absolute; top:12px; right:14px; background:none; border:none; cursor:pointer; font-size:1rem; color:var(--muted); }
+  .post-panel-close:hover { color:var(--ink); }
+  .post-location { font-family:'Geist Mono',monospace; font-size:0.58rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--blue); margin-bottom:10px; }
+  .post-username { font-size:1.1rem; font-weight:300; font-style:italic; margin-bottom:5px; }
+  .post-time { font-family:'Geist Mono',monospace; font-size:0.56rem; color:var(--muted); letter-spacing:0.1em; margin-bottom:18px; }
+  .post-media { width:100%; aspect-ratio:4/3; background:#e2dfd8; border-radius:2px; margin-bottom:14px; display:flex; align-items:center; justify-content:center; font-family:'Geist Mono',monospace; font-size:0.6rem; color:var(--muted); letter-spacing:0.1em; }
+  .post-caption { font-size:0.93rem; line-height:1.68; color:#444; }
+  .modal-overlay { position:fixed; inset:0; background:rgba(244,241,235,0.88); backdrop-filter:blur(6px); z-index:80; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.3s; }
+  .modal-overlay.open { opacity:1; pointer-events:all; }
+  .modal { background:var(--bg); border:1px solid rgba(26,26,26,0.11); border-radius:4px; padding:40px 40px 36px; width:100%; max-width:420px; transform:translateY(20px); transition:transform 0.4s cubic-bezier(0.22,1,0.36,1); }
+  .modal-overlay.open .modal { transform:translateY(0); }
+  .modal h2 { font-size:1.8rem; font-weight:300; font-style:italic; margin-bottom:6px; }
+  .modal-sub { font-family:'Geist Mono',monospace; font-size:0.58rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); margin-bottom:28px; }
+  .field { margin-bottom:18px; }
+  .field label { display:block; font-family:'Geist Mono',monospace; font-size:0.58rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+  .field input,.field textarea { width:100%; background:rgba(26,26,26,0.04); border:1px solid rgba(26,26,26,0.12); border-radius:2px; padding:10px 14px; font-family:'Cormorant Garamond',serif; font-size:1rem; color:var(--ink); outline:none; transition:border-color 0.2s; }
+  .field input:focus,.field textarea:focus { border-color:var(--blue); }
+  .field textarea { resize:none; height:80px; line-height:1.6; }
+  .upload-zone { width:100%; aspect-ratio:16/9; border:1.5px dashed rgba(26,26,26,0.18); border-radius:2px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; transition:border-color 0.2s; margin-bottom:18px; font-family:'Geist Mono',monospace; font-size:0.6rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); position:relative; overflow:hidden; }
+  .upload-zone:hover { border-color:var(--blue); color:var(--blue); }
+  .upload-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .upload-zone .upload-preview { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .type-toggle { display:flex; margin-bottom:18px; border:1px solid rgba(26,26,26,0.12); border-radius:2px; overflow:hidden; }
+  .type-toggle button { flex:1; padding:8px; font-family:'Geist Mono',monospace; font-size:0.58rem; letter-spacing:0.1em; text-transform:uppercase; border:none; cursor:pointer; background:transparent; color:var(--muted); transition:all 0.2s; }
+  .type-toggle button.active { background:var(--blue); color:#fff; }
+  .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:6px; }
+  .auth-tabs { display:flex; margin-bottom:28px; border-bottom:1px solid rgba(26,26,26,0.1); }
+  .auth-tab { padding:8px 0; margin-right:24px; font-family:'Geist Mono',monospace; font-size:0.6rem; letter-spacing:0.12em; text-transform:uppercase; cursor:pointer; color:var(--muted); border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.2s; }
+  .auth-tab.active { color:var(--blue); border-bottom-color:var(--blue); }
+  .live-count { position:fixed; bottom:32px; right:32px; z-index:50; display:flex; align-items:center; gap:8px; pointer-events:none; }
+  .live-dot { width:5px; height:5px; background:var(--blue); border-radius:50%; animation:lp 2.5s ease-in-out infinite; }
+  @keyframes lp { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .live-label { font-family:'Geist Mono',monospace; font-size:0.56rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
+  .status-indicator { position:fixed; bottom:32px; left:32px; z-index:50; display:flex; align-items:center; gap:8px; pointer-events:none; }
+  .status-dot { width:5px; height:5px; border-radius:50%; transition: background 0.4s; }
+  .status-dot.connected { background:#3dba6f; animation:lp 2.5s ease-in-out infinite; }
+  .status-dot.disconnected { background:#e04040; animation:none; opacity:1; }
+  .status-label { font-family:'Geist Mono',monospace; font-size:0.56rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); transition: color 0.4s; }
+
+  /* ── Post preview tooltip ── */
+  .post-preview {
+    position:fixed; z-index:30; pointer-events:none;
+    opacity:0; transform:translateY(6px);
+    transition:opacity 0.18s ease, transform 0.18s ease;
+  }
+  .post-preview.visible { opacity:1; transform:translateY(0); }
+  .preview-blob {
+    background:rgba(244,241,235,0.97);
+    border:1px solid rgba(26,26,26,0.09);
+    border-radius:10px; padding:10px 13px 11px; width:148px;
+    backdrop-filter:blur(8px);
+    box-shadow:0 4px 24px rgba(26,26,26,0.08);
+  }
+  .preview-label {
+    font-family:'Geist Mono',monospace; font-size:0.52rem;
+    letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--blue); margin-bottom:6px;
+  }
+  .preview-caption {
+    font-family:'Cormorant Garamond',serif; font-size:0.82rem;
+    font-style:italic; color:#555; line-height:1.45;
+    display:-webkit-box; -webkit-line-clamp:2;
+    -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .preview-bars { display:flex; align-items:center; gap:3px; height:26px; margin-top:2px; }
+  .preview-bar {
+    width:3px; border-radius:2px; background:var(--blue); opacity:0.65;
+    animation:barCenter var(--dur) ease-in-out infinite alternate;
+    transform-origin:center;
+  }
+  @keyframes barCenter { from{transform:scaleY(0.12);} to{transform:scaleY(1);} }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">Orbit</span>
+  <div class="nav-actions">
+    <button class="btn btn-ghost" onclick="openAuth('login')">Sign in</button>
+    <button class="btn btn-solid" onclick="openUpload()">Post today</button>
+  </div>
+</nav>
+
+<canvas id="globe-canvas"></canvas>
+<canvas id="overlay-canvas"></canvas>
+<div id="dots-container"></div>
+<div class="post-preview" id="post-preview">
+  <div class="preview-blob" id="preview-blob"></div>
+</div>
+
+<div class="hint" id="hint">Drag to explore · Click a dot to open a post</div>
+<div class="live-count"><div class="live-dot"></div><span class="live-label" id="live-label">247 active now</span></div>
+<div class="status-indicator"><div class="status-dot connected" id="status-dot"></div><span class="status-label" id="status-label">Status: Connected</span></div>
+
+<div class="post-panel" id="post-panel">
+  <button class="post-panel-close" onclick="closePost()">✕</button>
+  <div class="post-location" id="pp-location"></div>
+  <div class="post-username" id="pp-username"></div>
+  <div class="post-time" id="pp-time"></div>
+  <div class="post-media">[ Photo ]</div>
+  <div class="post-caption" id="pp-caption"></div>
+</div>
+
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <h2 id="auth-title">Welcome back</h2>
+    <p class="modal-sub" id="auth-sub">Sign in to your account</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</button>
+      <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</button>
+    </div>
+    <div class="field"><label>Email</label><input type="email" placeholder="you@example.com"></div>
+    <div class="field"><label>Password</label><input type="password" placeholder="········"></div>
+    <div class="field" id="field-name" style="display:none"><label>Your name</label><input type="text" placeholder="How you appear on the globe"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeAuth()">Cancel</button>
+      <button class="btn btn-solid" id="auth-cta">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="upload-modal">
+  <div class="modal">
+    <h2>Today's moment</h2>
+    <p class="modal-sub">One post · Once a day · Placed on the globe</p>
+    <div class="type-toggle">
+      <button class="active" id="type-photo" onclick="setType('photo')">📷 Photo</button>
+      <button id="type-voice" onclick="setType('voice')">🎙 Voice note</button>
+    </div>
+    <div id="photo-section">
+      <div class="upload-zone">
+        <input type="file" accept="image/*" onchange="previewImage(event)">
+        <span style="font-size:1.3rem">↑</span><span>Tap to upload photo</span>
+        <img class="upload-preview" id="img-preview" style="display:none">
+      </div>
+    </div>
+    <div id="voice-section" style="display:none">
+      <div class="upload-zone" onclick="toggleRecord()" style="cursor:pointer">
+        <span style="font-size:1.3rem" id="rec-icon">⏺</span><span id="rec-label">Tap to record</span>
+      </div>
+    </div>
+    <div class="field"><label>Caption (optional)</label><textarea placeholder="A few words about this moment…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeUpload()">Cancel</button>
+      <button class="btn btn-solid" onclick="submitPost()">Post to globe</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+const MOCK_POSTS = [
+  { lat:51.5,  lon:-0.12,  user:"marina_l",   location:"London, UK",        caption:"Morning fog on the Thames. Everything quiet.",    time:"7:42 AM",  type:"photo"  },
+  { lat:40.7,  lon:-74.0,  user:"jt_nyc",     location:"New York, US",      caption:"Finished a 7-mile run. Legs are done for.",       time:"6:15 AM",  type:"dot"    },
+  { lat:35.7,  lon:139.7,  user:"yuki.h",     location:"Tokyo, JP",         caption:"Cherry blossoms are almost here. Not yet.",       time:"9:30 PM",  type:"photo"  },
+  { lat:-33.9, lon:18.4,   user:"kez_cape",   location:"Cape Town, ZA",     caption:"Painted for 3 hours. Forgot to eat lunch.",       time:"2:11 PM",  type:"voice", category:"[SFX]"     },
+  { lat:52.4,  lon:4.9,    user:"pierre_m",   location:"Amsterdam, NL",     caption:"Rain again. Reading Camus at the window.",        time:"4:55 PM",  type:"dot"    },
+  { lat:-23.5, lon:-46.6,  user:"bia.crafts", location:"São Paulo, BR",     caption:"New batch of ceramics out of the kiln.",          time:"11:07 AM", type:"voice", category:"[MUSIC]"   },
+  { lat:55.7,  lon:37.6,   user:"sasha_rn",   location:"Moscow, RU",        caption:"Snow is finally melting. First park day.",        time:"3:40 PM",  type:"dot"    },
+  { lat:1.35,  lon:103.8,  user:"lim_sg",     location:"Singapore, SG",     caption:"Tried sourdough for the first time. Dense.",      time:"8:20 AM",  type:"photo"  },
+  { lat:19.4,  lon:-99.1,  user:"diego.ph",   location:"Mexico City, MX",   caption:"Sketching in Coyoacán. The light is perfect.",    time:"12:33 PM", type:"voice", category:"[WRITING]" },
+  { lat:37.6,  lon:-122.4, user:"sara_sf",    location:"San Francisco, US", caption:"Foghorn woke me at 5am. Worth it for this view.", time:"5:48 AM",  type:"photo"  },
+  { lat:28.6,  lon:77.2,   user:"arjun.k",    location:"Delhi, IN",         caption:"Watercolour practice — monsoon mood already.",    time:"7:00 PM",  type:"voice", category:"[VA]"      },
+  { lat:-27.5, lon:153.0,  user:"tom_bris",   location:"Brisbane, AU",      caption:"Magic hour on the river. This city, honestly.",   time:"5:30 PM",  type:"dot"    },
+];
+
+// ─── RENDERER ─────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('globe-canvas');
+const overlayCanvas = document.getElementById('overlay-canvas');
+const ctx2d = overlayCanvas.getContext('2d');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0xf4f1eb, 1);
+
+const W = () => window.innerWidth;
+const H = () => window.innerHeight;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, W()/H(), 0.1, 1000);
+camera.position.set(0, 0, 3.8);
+camera.lookAt(0, 0, 0);
+
+function resize() {
+  renderer.setSize(W(), H());
+  camera.aspect = W()/H();
+  camera.updateProjectionMatrix();
+  overlayCanvas.width  = W();
+  overlayCanvas.height = H();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ─── EARTH TEXTURE (unused — kept as dead code reference) ────────────────────
+function buildEarthTexture_UNUSED() {
+  const TW = 4096, TH = 2048;
+  const tc = document.createElement('canvas');
+  tc.width = TW; tc.height = TH;
+  const g = tc.getContext('2d');
+
+  const px = lon => ((lon + 180) / 360) * TW;
+  const py = lat => ((90 - lat)  / 180) * TH;
+
+  // Ocean fill
+  const ocean = g.createLinearGradient(0,0,0,TH);
+  ocean.addColorStop(0,   '#b8d0e8');
+  ocean.addColorStop(0.5, '#c4d8ee');
+  ocean.addColorStop(1,   '#adc8e0');
+  g.fillStyle = ocean;
+  g.fillRect(0, 0, TW, TH);
+
+  // Grid
+  g.strokeStyle = 'rgba(20,50,160,0.07)';
+  g.lineWidth = 1.5;
+  for (let lat = -80; lat <= 80; lat += 20) {
+    g.beginPath(); g.moveTo(0, py(lat)); g.lineTo(TW, py(lat)); g.stroke();
+  }
+  for (let lon = -180; lon <= 180; lon += 30) {
+    g.beginPath(); g.moveTo(px(lon), 0); g.lineTo(px(lon), TH); g.stroke();
+  }
+
+  const LAND  = '#8daa8f';
+  const LAND2 = '#7a9a7c';
+  const ICE   = '#d8eaf8';
+
+  function poly(coords, fill) {
+    g.beginPath();
+    coords.forEach(([lo,la], i) => {
+      i === 0 ? g.moveTo(px(lo), py(la)) : g.lineTo(px(lo), py(la));
+    });
+    g.closePath();
+    g.fillStyle = fill || LAND;
+    g.fill();
+  }
+
+  // ── NORTH AMERICA ─────────────────────────────────────────────────────────
+  // Alaska + Canada Arctic
+  poly([
+    [-168,72],[-158,72],[-152,70],[-142,70],[-136,60],[-132,56],[-128,52],
+    [-124,50],[-122,50],[-96,50],[-88,48],[-82,46],[-76,44],[-70,44],
+    [-64,48],[-60,46],[-54,46],[-58,42],[-66,40],[-70,38],[-74,36],
+    [-76,34],[-80,32],[-82,30],[-84,30],[-88,30],[-90,28],[-96,28],
+    [-98,26],[-102,22],[-106,20],[-92,16],[-86,10],[-78,8],[-76,10],
+    [-78,14],[-82,18],[-90,16],[-94,22],[-98,22],[-100,20],[-104,22],
+    [-108,24],[-110,26],[-114,28],[-118,28],[-114,32],[-118,34],[-120,36],
+    [-124,38],[-124,44],[-124,50],[-128,52],[-132,56],[-136,58],[-140,60],
+    [-148,62],[-152,62],[-158,60],[-162,60],[-166,64],[-168,68],[-168,72]
+  ]);
+  // Greenland
+  poly([
+    [-52,84],[-36,84],[-22,82],[-18,76],[-22,72],[-26,68],[-22,66],
+    [-26,64],[-30,68],[-36,70],[-42,72],[-46,76],[-50,80],[-52,84]
+  ], LAND2);
+  // Cuba
+  poly([[-74,20],[-80,22],[-84,22],[-82,20],[-76,20],[-74,20]], LAND2);
+
+  // ── SOUTH AMERICA ─────────────────────────────────────────────────────────
+  poly([
+    [-78,12],[-76,8],[-76,4],[-72,2],[-70,-2],[-70,-8],[-74,-8],[-78,-4],
+    [-80,-4],[-78,-10],[-74,-14],[-72,-18],[-70,-22],[-66,-28],[-66,-32],
+    [-66,-36],[-68,-40],[-66,-44],[-68,-50],[-68,-54],[-66,-56],[-60,-54],
+    [-56,-50],[-52,-34],[-50,-28],[-46,-24],[-42,-22],[-40,-20],[-38,-14],
+    [-36,-6],[-34,-4],[-36,0],[-40,2],[-44,4],[-50,4],[-54,4],[-58,6],
+    [-62,10],[-64,12],[-68,12],[-72,12],[-76,10],[-78,12]
+  ]);
+
+  // ── EUROPE ────────────────────────────────────────────────────────────────
+  // Scandinavia+Finland
+  poly([
+    [4,58],[6,58],[8,58],[8,56],[10,56],[12,56],[14,58],[16,60],[18,60],
+    [20,64],[22,66],[24,68],[26,70],[28,72],[30,70],[28,68],[26,66],
+    [24,64],[22,62],[24,60],[26,60],[28,62],[30,64],[32,66],[34,68],
+    [32,70],[30,72],[28,72],[26,70],[24,68],[22,66],[20,64],[18,60],
+    [16,58],[14,56],[12,56],[10,56],[10,58],[8,60],[6,60],[4,60],[4,58]
+  ]);
+  // Main continent
+  poly([
+    [-10,36],[-8,38],[-6,40],[-8,44],[-4,44],[-2,46],[0,48],[2,48],
+    [4,52],[6,54],[8,54],[10,56],[12,56],[14,54],[14,52],[16,50],[18,50],
+    [20,50],[22,48],[24,46],[26,46],[26,44],[28,42],[30,42],[32,40],
+    [34,38],[32,36],[28,38],[26,40],[24,38],[22,38],[20,40],[18,40],
+    [16,40],[14,38],[12,38],[10,40],[8,38],[6,44],[4,44],[2,46],[0,46],
+    [-2,44],[-4,44],[-6,40],[-8,38],[-10,36]
+  ]);
+  poly([[-6,50],[-4,52],[-2,56],[0,58],[0,60],[-2,60],[-4,58],[-6,56],[-4,52],[-6,50]], LAND2); // UK
+  poly([[-10,52],[-8,52],[-6,54],[-8,54],[-10,54],[-10,52]], LAND2); // Ireland
+  poly([[-24,64],[-20,66],[-14,66],[-14,64],[-18,62],[-24,62],[-24,64]], LAND2); // Iceland
+
+  // ── AFRICA ────────────────────────────────────────────────────────────────
+  poly([
+    [-18,16],[-16,20],[-18,24],[-14,24],[-10,28],[-4,32],[2,36],[8,38],
+    [10,38],[12,34],[14,32],[16,30],[18,28],[22,24],[26,20],[28,16],
+    [30,12],[32,8],[36,4],[38,0],[38,-4],[36,-10],[34,-16],[32,-20],
+    [28,-28],[26,-34],[28,-36],[26,-38],[22,-36],[18,-32],[14,-26],
+    [10,-18],[6,-10],[2,-2],[0,4],[-4,8],[-8,10],[-12,6],[-14,4],
+    [-16,6],[-16,10],[-18,14],[-18,16]
+  ]);
+  // Madagascar
+  poly([[44,-12],[46,-14],[50,-16],[50,-20],[48,-24],[44,-24],[44,-18],[44,-12]], LAND2);
+
+  // ── RUSSIA + N. ASIA ──────────────────────────────────────────────────────
+  poly([
+    [26,70],[28,72],[40,72],[60,76],[80,76],[100,78],[120,74],[140,72],
+    [150,68],[158,64],[164,68],[168,68],[170,64],[168,60],[162,54],
+    [154,50],[148,46],[144,46],[140,48],[136,48],[132,44],[128,44],
+    [124,46],[120,48],[114,50],[108,52],[102,52],[96,54],[90,54],
+    [84,54],[76,56],[70,58],[64,60],[58,62],[52,62],[46,60],[40,56],
+    [34,52],[30,52],[28,56],[26,58],[24,60],[26,62],[28,64],[26,66],
+    [24,68],[26,70]
+  ]);
+
+  // ── MIDDLE EAST ───────────────────────────────────────────────────────────
+  poly([
+    [26,38],[28,36],[32,32],[36,28],[38,24],[42,16],[44,12],[46,14],
+    [50,16],[52,18],[56,22],[60,22],[62,26],[60,28],[56,30],[50,30],
+    [46,30],[44,32],[40,36],[36,36],[34,36],[32,38],[30,38],[26,38]
+  ]);
+
+  // ── INDIA + S. ASIA ───────────────────────────────────────────────────────
+  poly([
+    [62,24],[66,22],[70,20],[72,20],[76,14],[78,10],[80,8],[80,12],
+    [78,16],[78,20],[76,20],[78,24],[80,26],[82,26],[84,24],[88,22],
+    [90,24],[92,24],[94,24],[96,24],[98,22],[96,20],[94,20],[92,22],
+    [90,24],[88,26],[86,28],[84,28],[80,28],[78,30],[76,32],[72,34],
+    [68,36],[66,34],[64,30],[62,28],[62,24]
+  ]);
+
+  // ── SE ASIA ───────────────────────────────────────────────────────────────
+  poly([
+    [98,26],[100,24],[102,20],[104,16],[102,12],[100,8],[102,4],
+    [104,2],[106,2],[108,4],[110,2],[112,2],[116,6],[118,6],[120,6],
+    [122,8],[124,8],[126,10],[128,10],[130,8],[128,4],[126,2],[124,0],
+    [122,-2],[120,-4],[118,-4],[116,-4],[114,-4],[112,-4],[110,-2],
+    [108,0],[106,2],[104,4],[102,8],[100,10],[98,14],[96,18],[96,22],
+    [98,26]
+  ]);
+  poly([[96,6],[100,4],[104,0],[106,-4],[104,-6],[100,-4],[96,2],[96,6]], LAND2); // Sumatra
+  poly([[106,-8],[112,-8],[114,-6],[110,-6],[106,-6],[106,-8]], LAND2); // Java
+  poly([[108,2],[112,4],[116,4],[118,2],[116,-2],[112,-2],[108,0],[108,2]], LAND2); // Borneo
+
+  // ── EAST ASIA ─────────────────────────────────────────────────────────────
+  poly([
+    [100,52],[106,52],[110,54],[116,54],[122,50],[128,48],[130,46],
+    [132,42],[132,38],[130,34],[126,32],[122,30],[120,28],[118,26],
+    [114,22],[110,20],[108,22],[106,22],[104,22],[102,20],[100,20],
+    [100,24],[104,24],[108,24],[110,26],[112,28],[116,32],[120,36],
+    [120,40],[118,42],[114,46],[110,50],[106,50],[100,50],[100,52]
+  ]);
+  poly([[130,32],[134,36],[136,38],[138,38],[140,40],[142,40],[140,36],[136,32],[132,32],[130,32]], LAND2); // Japan
+  poly([[126,34],[128,36],[130,38],[130,36],[128,34],[126,34]], LAND2); // Korea
+
+  // ── AUSTRALIA ─────────────────────────────────────────────────────────────
+  poly([
+    [114,-22],[118,-20],[122,-18],[126,-14],[130,-12],[134,-12],
+    [138,-14],[140,-18],[142,-20],[146,-20],[150,-22],[152,-26],
+    [154,-28],[152,-32],[150,-36],[148,-38],[144,-36],[140,-36],
+    [136,-34],[132,-32],[128,-34],[124,-34],[120,-32],[116,-28],
+    [114,-24],[114,-22]
+  ]);
+  poly([[144,-40],[148,-42],[146,-44],[144,-42],[144,-40]], LAND2); // Tasmania
+  poly([[172,-36],[178,-38],[176,-42],[172,-42],[170,-38],[172,-36]], LAND2); // NZ N
+  poly([[168,-44],[172,-46],[170,-48],[168,-46],[168,-44]], LAND2); // NZ S
+
+  // ── POLES ─────────────────────────────────────────────────────────────────
+  poly([[-180,-68],[-120,-66],[-60,-70],[0,-68],[60,-68],[120,-68],[180,-68],[180,-90],[-180,-90],[-180,-68]], ICE);
+  poly([[-180,82],[-120,80],[-60,80],[0,82],[60,80],[120,80],[180,82],[180,90],[-180,90],[-180,82]], ICE);
+
+  return new THREE.CanvasTexture(tc);
+}
+
+const RADIUS = 1.0;
+
+// Standard sphere → cartesian. Camera looks from +Z.
+// theta=0 → lon=-180, theta=PI → lon=0 (prime meridian faces camera when rotation.y=0)
+function projectPoint(lat, lon, r) {
+  const latR  = lat  * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+  return new THREE.Vector3(
+    -r * Math.cos(latR) * Math.cos(theta),
+     r * Math.sin(latR),
+     r * Math.cos(latR) * Math.sin(theta)
+  );
+}
+
+// Depth-blocker so back-face lines stay hidden
+const solidMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
+  new THREE.MeshBasicMaterial({ color:0xf4f1eb, depthWrite:true })
+);
+
+// Subtle lat/lon grid
+const wireMesh = new THREE.LineSegments(
+  new THREE.WireframeGeometry(new THREE.SphereGeometry(RADIUS * 1.001, 36, 24)),
+  new THREE.LineBasicMaterial({ color:0x1a4aff, transparent:true, opacity:0.15, linewidth:2 })
+);
+
+// ── Continent outlines ────────────────────────────────────────────────────────
+const OUTLINE_R   = RADIUS * 1.003;
+const OUTLINE_MAT = new THREE.LineBasicMaterial({ color:0x1a4aff, transparent:true, opacity:0.72, linewidth:2 });
+
+function makeOutline(coords) {
+  const pts = coords.map(([lo, la]) => projectPoint(la, lo, OUTLINE_R));
+  pts.push(pts[0].clone());
+  return new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(pts),
+    OUTLINE_MAT
+  );
+}
+
+// All outlines go into spinGroup via this helper
+const outlineGroup = new THREE.Group();
+
+function addOutline(coords) { outlineGroup.add(makeOutline(coords)); }
+
+// ── NORTH AMERICA coastline ───────────────────────────────────────────────────
+addOutline([
+  [-140,60],[-136,58],[-132,56],[-128,52],[-124,49],[-124,44],[-124,38],
+  [-120,35],[-117,33],[-114,30],[-110,26],[-106,22],[-100,20],[-90,16],
+  [-84,10],[-78,8],[-76,10],[-78,14],[-82,18],[-88,16],[-90,18],[-94,22],
+  [-98,22],[-100,20],[-104,22],[-108,24],[-110,28],[-114,32],[-118,34],
+  [-80,32],[-76,35],[-74,38],[-70,40],[-66,44],[-66,44],[-64,48],[-60,46],
+  [-54,46],[-58,42],[-66,40],[-70,38],[-74,36],[-76,34],[-80,32],
+  [-82,30],[-84,30],[-88,30],[-90,29],[-96,28],[-98,26],[-100,24],
+  [-82,46],[-76,44],[-70,44],[-67,47],[-66,44],[-60,46],[-56,48],
+  [-96,49],[-110,49],[-124,49],
+  [-88,48],[-84,46],[-82,46],
+  [-76,44],[-78,44],[-80,44],[-82,46],
+  [-88,68],[-80,68],[-78,72],[-70,70],[-64,72],[-60,76],[-50,80],
+  [-60,82],[-70,84],[-80,84],[-90,82],[-100,79],[-110,78],[-120,76],
+  [-130,73],[-140,75],[-155,75],[-160,72],[-168,72],[-168,68],
+  [-166,64],[-162,60],[-158,60],[-152,62],[-148,62],[-140,60]
+]);
+
+// Greenland
+addOutline([
+  [-52,84],[-36,84],[-22,82],[-18,76],[-22,72],[-26,68],[-22,66],
+  [-26,64],[-30,68],[-36,70],[-42,72],[-46,76],[-50,80],[-52,84]
+]);
+
+// ── SOUTH AMERICA ─────────────────────────────────────────────────────────────
+addOutline([
+  [-78,12],[-76,8],[-76,4],[-72,2],[-70,-2],[-70,-8],[-74,-8],[-78,-4],
+  [-80,-4],[-78,-10],[-74,-14],[-72,-18],[-70,-22],[-66,-28],[-66,-32],
+  [-66,-36],[-68,-40],[-66,-44],[-68,-50],[-68,-54],[-66,-56],[-60,-54],
+  [-56,-50],[-52,-34],[-50,-28],[-46,-24],[-42,-22],[-40,-20],[-38,-14],
+  [-36,-6],[-34,-4],[-36,0],[-40,2],[-44,4],[-50,4],[-54,4],[-58,6],
+  [-62,10],[-64,12],[-68,12],[-72,12],[-76,10],[-78,12]
+]);
+
+// ── EUROPE ────────────────────────────────────────────────────────────────────
+addOutline([
+  [-10,36],[-8,38],[-6,40],[-8,44],[-4,44],[-2,46],[0,48],[2,48],
+  [4,52],[6,54],[8,54],[10,56],[12,56],[14,54],[14,52],[16,50],[18,50],
+  [20,50],[22,48],[24,46],[26,46],[26,44],[28,42],[30,42],[32,40],
+  [34,38],[32,36],[28,38],[26,40],[24,38],[22,38],[20,40],[18,40],
+  [16,40],[14,38],[12,38],[10,40],[8,38],[6,44],[4,44],[2,46],
+  [0,46],[-2,44],[-4,44],[-6,40],[-8,38],[-10,36]
+]);
+// Scandinavia
+addOutline([
+  [4,58],[8,58],[10,56],[12,56],[14,58],[16,60],[18,60],[20,64],
+  [22,66],[24,68],[26,70],[28,72],[30,70],[28,68],[26,66],[24,64],
+  [22,62],[24,60],[26,60],[28,62],[30,64],[32,66],[34,68],[32,70],
+  [30,72],[28,72],[24,68],[20,64],[18,60],[14,56],[10,56],[8,58],[4,58]
+]);
+// Great Britain
+addOutline([[-6,50],[-4,52],[-2,56],[0,58],[0,60],[-2,60],[-4,58],[-6,56],[-4,52],[-6,50]]);
+// Ireland
+addOutline([[-10,52],[-8,52],[-6,54],[-8,54],[-10,54],[-10,52]]);
+// Iceland
+addOutline([[-24,64],[-20,66],[-14,66],[-14,64],[-18,62],[-24,62],[-24,64]]);
+
+// ── AFRICA ────────────────────────────────────────────────────────────────────
+addOutline([
+  [-18,16],[-16,20],[-18,24],[-14,24],[-10,28],[-4,32],[2,36],[8,38],
+  [10,38],[12,34],[14,32],[16,30],[18,28],[22,24],[26,20],[28,16],
+  [30,12],[32,8],[36,4],[38,0],[38,-4],[36,-10],[34,-16],[32,-20],
+  [28,-28],[26,-34],[28,-36],[26,-38],[22,-36],[18,-32],[14,-26],
+  [10,-18],[6,-10],[2,-2],[0,4],[-4,8],[-8,10],[-12,6],[-14,4],
+  [-16,6],[-16,10],[-18,14],[-18,16]
+]);
+addOutline([[44,-12],[46,-14],[50,-16],[50,-20],[48,-24],[44,-24],[44,-18],[44,-12]]); // Madagascar
+
+// ── RUSSIA & N. ASIA ──────────────────────────────────────────────────────────
+addOutline([
+  [26,70],[28,72],[40,72],[60,76],[80,76],[100,78],[120,74],[140,72],
+  [150,68],[158,64],[164,68],[168,68],[170,64],[168,60],[162,54],
+  [154,50],[148,46],[144,46],[140,48],[136,48],[132,44],[128,44],
+  [124,46],[120,48],[114,50],[108,52],[102,52],[96,54],[90,54],
+  [84,54],[76,56],[70,58],[64,60],[58,62],[52,62],[46,60],[40,56],
+  [34,52],[30,52],[28,56],[26,58],[24,60],[26,62],[28,64],[26,66],[24,68],[26,70]
+]);
+
+// ── MIDDLE EAST + ARABIA ──────────────────────────────────────────────────────
+addOutline([
+  [26,38],[28,36],[32,32],[36,28],[38,24],[42,16],[44,12],[46,14],
+  [50,16],[52,18],[56,22],[60,22],[62,26],[60,28],[56,30],[50,30],
+  [46,30],[44,32],[40,36],[36,36],[34,36],[32,38],[30,38],[26,38]
+]);
+
+// ── INDIA ─────────────────────────────────────────────────────────────────────
+addOutline([
+  [62,24],[66,22],[70,20],[72,20],[76,14],[78,10],[80,8],[80,12],
+  [78,16],[78,20],[76,20],[78,24],[80,26],[82,26],[84,24],[88,22],
+  [90,24],[92,24],[96,24],[98,22],[96,20],[92,22],[90,24],[88,26],
+  [86,28],[84,28],[80,28],[78,30],[76,32],[72,34],[68,36],[66,34],
+  [64,30],[62,28],[62,24]
+]);
+
+// ── CHINA + EAST ASIA ─────────────────────────────────────────────────────────
+addOutline([
+  [100,52],[106,52],[110,54],[116,54],[122,50],[128,48],[130,46],
+  [132,42],[132,38],[130,34],[126,32],[122,30],[120,28],[118,26],
+  [114,22],[110,20],[108,22],[106,22],[104,22],[102,20],[100,20],
+  [100,24],[104,24],[108,24],[110,26],[112,28],[116,32],[120,36],
+  [120,40],[118,42],[114,46],[110,50],[106,50],[100,50],[100,52]
+]);
+
+// ── SE ASIA ───────────────────────────────────────────────────────────────────
+addOutline([
+  [98,26],[100,24],[102,20],[104,16],[102,12],[100,8],[102,4],
+  [104,2],[108,4],[110,2],[116,6],[120,6],[122,8],[126,10],[130,8],
+  [128,4],[126,2],[124,0],[120,-4],[116,-4],[112,-4],[110,-2],
+  [108,0],[106,2],[104,4],[102,8],[100,10],[98,14],[96,18],[96,22],[98,26]
+]);
+
+// ── AUSTRALIA ─────────────────────────────────────────────────────────────────
+addOutline([
+  [114,-22],[118,-20],[122,-18],[126,-14],[130,-12],[134,-12],
+  [138,-14],[140,-18],[142,-20],[146,-20],[150,-22],[152,-26],
+  [154,-28],[152,-32],[150,-36],[148,-38],[144,-36],[140,-36],
+  [136,-34],[132,-32],[128,-34],[124,-34],[120,-32],[116,-28],[114,-24],[114,-22]
+]);
+
+// ── JAPAN ─────────────────────────────────────────────────────────────────────
+addOutline([[130,32],[134,36],[136,38],[138,38],[140,40],[142,40],[140,36],[136,32],[132,30],[130,32]]);
+
+// Inner group: Y-axis spin only
+const spinGroup = new THREE.Group();
+spinGroup.rotation.y = 0;
+spinGroup.add(solidMesh, wireMesh, outlineGroup);
+
+// No tilt — globe sits flat, centered
+const tiltGroup = new THREE.Group();
+tiltGroup.add(spinGroup);
+
+tiltGroup.scale.setScalar(0.9);
+tiltGroup.position.x = 0;
+
+scene.add(tiltGroup);
+
+// No lighting needed — MeshBasicMaterial renders texture flat
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function latLonToLocal(lat, lon, r) {
+  return projectPoint(lat, lon, r);
+}
+
+const _prj = new THREE.Vector3();
+function toScreen(worldV3) {
+  _prj.copy(worldV3).project(camera);
+  return {
+    x: (_prj.x *  0.5 + 0.5) * W(),
+    y: (-_prj.y * 0.5 + 0.5) * H()
+  };
+}
+
+// ─── POST OBJECTS ─────────────────────────────────────────────────────────────
+// Each post has a random line angle: upward (negative Y) with positive X component.
+// angle is in radians measured from straight-up (negative screen Y),
+// ranging from -45° to +45° — all biased rightward by ensuring cos(angle) > 0.
+// We pick angle ∈ (-π/4, π/4) for the X component,
+// and the direction vector is: dx = sin(angle), dy = -cos(angle)
+// This makes all lines point generally upward and to the right.
+
+const LINE_MAX = 80; // max leash length in px — defined in drawOverlay section below
+
+const POST_OBJECTS = MOCK_POSTS.map(post => {
+  const localPos = latLonToLocal(post.lat, post.lon, RADIUS);
+
+  // Tiny surface dot in the spin group (rotates with globe)
+  const dot = new THREE.Mesh(
+    new THREE.SphereGeometry(0.007, 8, 8),
+    new THREE.MeshBasicMaterial({ color:0x1a4aff, transparent:true, opacity:0 })
+  );
+  dot.position.copy(localPos);
+  spinGroup.add(dot);
+
+  // lineDir will be computed dynamically each frame from the surface normal
+  const lineDir = null;
+
+  // HTML endpoint marker — styled per post type
+  const el = document.createElement('div');
+  el.className = 'post-dot type-' + post.type;
+  el.style.display = 'none';
+  el.style.opacity = '0';
+
+  if (post.type === 'photo') {
+    const snippet = post.caption.split(' ').slice(0,4).join(' ') + '…';
+    el.innerHTML = `<div class="photo-label">[ photo ]</div><div class="photo-snippet">${snippet}</div>`;
+  } else if (post.type === 'voice') {
+    // Fixed height bars — scaleY from center creates the in/out pulse
+    const bars = Array.from({length:7}, () => {
+      const dur = (0.35 + Math.random() * 0.5).toFixed(2);
+      const del = (Math.random() * 0.4).toFixed(2);
+      return `<div class="voice-bar" style="--dur:${dur}s;animation-delay:${del}s"></div>`;
+    }).join('');
+    el.innerHTML = `<div class="voice-category">${post.category || '[AUDIO]'}</div><div class="voice-bars">${bars}</div>`;
+  }
+  // type-dot: no inner HTML needed — rendered via ::after pseudo-element
+
+  el.addEventListener('click', e => { e.stopPropagation(); openPost(post); });
+  el.addEventListener('mouseenter', () => showPreview(post, el));
+  el.addEventListener('mouseleave', () => hidePreview());
+  document.getElementById('dots-container').appendChild(el);
+
+  return {
+    localPos,
+    dot,
+    el,
+    data: post,
+    lineDir,
+    progress: 0,
+    lagX: null, lagY: null,
+    _drawnX: 0, _drawnY: 0,
+    lineLengthMult: 1.0,
+  };
+});
+
+// ─── DRAG ─────────────────────────────────────────────────────────────────────
+let isDragging = false, dragMoved = false, rotVel = 0, autoRotate = true, arTimer = null;
+let prevX = 0;
+
+let _justOpenedPost = false;
+
+// Click handler on overlay canvas for type-dot posts (drawn directly on canvas)
+overlayCanvas.addEventListener('click', e => {
+  const rect = overlayCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  let hit = null, bestDist = 16;
+  POST_OBJECTS.forEach(p => {
+    if (p.data.type !== 'dot' || p.progress <= 0.55) return;
+    const dist = Math.sqrt((mx - p._drawnX) ** 2 + (my - p._drawnY) ** 2);
+    if (dist < bestDist) { bestDist = dist; hit = p; }
+  });
+  if (hit) { _justOpenedPost = true; setTimeout(() => { _justOpenedPost = false; }, 100); e.stopPropagation(); openPost(hit.data); }
+});
+
+canvas.addEventListener('mousedown', e => {
+  isDragging = true; dragMoved = false; prevX = e.clientX;
+  clearTimeout(arTimer); autoRotate = false;
+});
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - prevX;
+  if (Math.abs(dx) > 2) dragMoved = true;
+  rotVel = dx * 0.005;
+  spinGroup.rotation.y += rotVel;
+  prevX = e.clientX;
+});
+window.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  arTimer = setTimeout(() => { autoRotate = true; }, 3500);
+});
+canvas.addEventListener('mouseup', e => {
+  if (!dragMoved && !_justOpenedPost) closePost();
+});
+canvas.addEventListener('touchstart', e => {
+  isDragging = true; dragMoved = false; prevX = e.touches[0].clientX;
+  clearTimeout(arTimer); autoRotate = false;
+}, {passive:true});
+canvas.addEventListener('touchmove', e => {
+  const dx = e.touches[0].clientX - prevX;
+  if (Math.abs(dx) > 2) dragMoved = true;
+  rotVel = dx * 0.005; spinGroup.rotation.y += rotVel;
+  prevX = e.touches[0].clientX;
+}, {passive:true});
+canvas.addEventListener('touchend', () => {
+  isDragging = false;
+  arTimer = setTimeout(() => { autoRotate = true; }, 3500);
+});
+
+// ─── OVERLAY ──────────────────────────────────────────────────────────────────
+const _wPos = new THREE.Vector3();
+const _nrm  = new THREE.Vector3();
+const _mat3 = new THREE.Matrix3();
+const EASE       = 0.065;
+const LAG_SPEED  = 0.045; // how fast the endpoint chases the target (lower = more lag)
+
+function easeInOut(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+function drawOverlay() {
+  ctx2d.clearRect(0, 0, W(), H());
+  _mat3.getNormalMatrix(spinGroup.matrixWorld);
+
+  POST_OBJECTS.forEach(p => {
+    _wPos.copy(p.localPos).applyMatrix4(spinGroup.matrixWorld);
+    _nrm.copy(p.localPos).normalize().applyMatrix3(_mat3).normalize();
+
+    const toCam  = camera.position.clone().sub(_wPos).normalize();
+    const facing = toCam.dot(_nrm);
+    const targetVis = Math.max(0, Math.min(1, (facing + 0.03) / 0.20));
+
+    p.progress += (targetVis - p.progress) * EASE;
+    if (p.progress < 0.003) p.progress = 0;
+    if (p.progress > 0.997) p.progress = 1;
+
+    const prog = p.progress;
+
+    if (prog <= 0) {
+      p.el.style.display = 'none';
+      p.dot.material.opacity = 0;
+      p.lagX = null; p.lagY = null; // reset lag when hidden
+      return;
+    }
+
+    const sp    = toScreen(_wPos);
+    const eased = easeInOut(prog);
+
+    p.dot.material.opacity = p.data.type === "dot" ? 0 : Math.min(0.45, prog * 1.5);
+
+    // Project the surface normal into screen space to get the "standing up" direction.
+    // We project two points: the surface dot and a point slightly along the world normal,
+    // then take the screen-space vector between them.
+    const normalWorld = _nrm.clone(); // already computed above, points outward in world space
+    const tipWorld = _wPos.clone().add(normalWorld.clone().multiplyScalar(0.18));
+    const spTip = toScreen(tipWorld);
+
+    // Screen-space direction from surface dot toward the outward tip
+    let ndx = spTip.x - sp.x;
+    let ndy = spTip.y - sp.y;
+    const nlen = Math.sqrt(ndx * ndx + ndy * ndy) || 1;
+    ndx /= nlen;
+    ndy /= nlen;
+
+    // The "ideal" endpoint: in the surface-normal screen direction
+    const targetX = sp.x + ndx * LINE_MAX * p.lineLengthMult;
+    const targetY = sp.y + ndy * LINE_MAX * p.lineLengthMult;
+
+    // Initialize lag position on first appearance
+    if (p.lagX === null) { p.lagX = sp.x; p.lagY = sp.y - 10; }
+
+    // Lag endpoint chases the ideal position slowly — this is the inertia
+    p.lagX += (targetX - p.lagX) * LAG_SPEED;
+    p.lagY += (targetY - p.lagY) * LAG_SPEED;
+
+    // Clamp leash: don't let the line stretch beyond LINE_MAX * 1.6
+    const dx = p.lagX - sp.x;
+    const dy = p.lagY - sp.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const maxDist = LINE_MAX * 1.6;
+    let ex = p.lagX, ey = p.lagY;
+    if (dist > maxDist) {
+      ex = sp.x + (dx / dist) * maxDist;
+      ey = sp.y + (dy / dist) * maxDist;
+      p.lagX = ex; p.lagY = ey;
+    }
+
+    // Fade in: scale line length by eased progress
+    const midX = sp.x + (ex - sp.x) * eased;
+    const midY = sp.y + (ey - sp.y) * eased;
+
+    if (eased > 0.01) {
+      ctx2d.beginPath();
+      ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
+      ctx2d.lineTo(Math.round(midX), Math.round(midY));
+      ctx2d.strokeStyle = `rgba(26,74,255,${0.5 * eased})`;
+      ctx2d.lineWidth = 0.9;
+      ctx2d.stroke();
+    }
+
+    // Endpoint dot appears after 55% progress
+    const dotFadeStart = 0.55;
+    if (prog > dotFadeStart) {
+      const dotAlpha = Math.min(1, (prog - dotFadeStart) / 0.25);
+
+      if (p.data.type === 'dot') {
+        p._drawnX = midX; p._drawnY = midY;
+        // Draw directly on canvas — same coordinate space as the line, zero offset
+        ctx2d.beginPath();
+        ctx2d.arc(midX, midY, 4, 0, Math.PI * 2);
+        ctx2d.fillStyle = `rgba(26,74,255,${dotAlpha})`;
+        ctx2d.fill();
+        ctx2d.beginPath();
+        ctx2d.arc(midX, midY, 7, 0, Math.PI * 2);
+        ctx2d.strokeStyle = `rgba(26,74,255,${dotAlpha * 0.22})`;
+        ctx2d.lineWidth = 1.5;
+        ctx2d.stroke();
+        p.el.style.display = 'none';
+      } else {
+        p.el.style.display = 'block';
+        p.el.style.left = midX + 'px';
+        p.el.style.top  = midY + 'px';
+        p.el.style.opacity = dotAlpha;
+        p.el.style.pointerEvents = dotAlpha > 0.4 ? 'all' : 'none';
+      }
+    } else {
+      p.el.style.display = 'none';
+    }
+  });
+
+  // ── Overlap avoidance ────────────────────────────────────────────────────────
+  // If two endpoint lag positions are within OVERLAP_THRESH px of each other,
+  // the more front-facing post keeps a short line; the other gets a longer one
+  // so its endpoint peeks out from behind.
+  const OVERLAP_THRESH = 55;
+  for (let i = 0; i < POST_OBJECTS.length; i++) {
+    const a = POST_OBJECTS[i];
+    if (a.progress <= 0 || a.lagX === null) continue;
+    for (let j = i + 1; j < POST_OBJECTS.length; j++) {
+      const b = POST_OBJECTS[j];
+      if (b.progress <= 0 || b.lagX === null) continue;
+      const ddx = a.lagX - b.lagX, ddy = a.lagY - b.lagY;
+      const d = Math.sqrt(ddx * ddx + ddy * ddy);
+      if (d < OVERLAP_THRESH) {
+        if (a.progress >= b.progress) {
+          a.lineLengthMult += (1.0  - a.lineLengthMult) * 0.06;
+          b.lineLengthMult += (1.7  - b.lineLengthMult) * 0.06;
+        } else {
+          b.lineLengthMult += (1.0  - b.lineLengthMult) * 0.06;
+          a.lineLengthMult += (1.7  - a.lineLengthMult) * 0.06;
+        }
+      } else {
+        a.lineLengthMult += (1.0 - a.lineLengthMult) * 0.03;
+        b.lineLengthMult += (1.0 - b.lineLengthMult) * 0.03;
+      }
+    }
+  }
+}
+
+// ─── ANIMATE ──────────────────────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (autoRotate && !isDragging) {
+    // Spin west-to-east (same direction as previous version)
+    spinGroup.rotation.y -= 0.0009;
+  } else if (!isDragging) {
+    rotVel *= 0.92;
+    spinGroup.rotation.y += rotVel;
+  }
+
+  renderer.render(scene, camera);
+  drawOverlay();
+}
+animate();
+
+// ─── PREVIEW TOOLTIP ──────────────────────────────────────────────────────────
+// Photo and voice show their content inline; dot type gets a small caption tooltip
+function showPreview(data, dotEl) {
+  if (data.type !== 'dot') return;
+  const preview = document.getElementById('post-preview');
+  const blob    = document.getElementById('preview-blob');
+  blob.innerHTML = `<div class="preview-caption">${data.caption}</div>`;
+  const rect = dotEl.getBoundingClientRect();
+  preview.style.left = (rect.left + rect.width / 2 - 74) + 'px';
+  preview.style.top  = (rect.top - 10) + 'px';
+  preview.style.transform = 'translateY(-100%)';
+  preview.classList.add('visible');
+}
+
+function hidePreview() {
+  document.getElementById('post-preview').classList.remove('visible');
+}
+
+// ─── POST PANEL ───────────────────────────────────────────────────────────────
+function openPost(data) {
+  document.getElementById('pp-location').textContent = data.location;
+  document.getElementById('pp-username').textContent = '@' + data.user;
+  document.getElementById('pp-time').textContent = 'Today at ' + data.time;
+  document.getElementById('pp-caption').textContent = data.caption;
+  document.getElementById('post-panel').classList.add('open');
+  document.getElementById('hint').style.opacity = '0';
+}
+function closePost() { document.getElementById('post-panel').classList.remove('open'); }
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+function openAuth(m) { switchTab(m); document.getElementById('auth-modal').classList.add('open'); }
+function closeAuth() { document.getElementById('auth-modal').classList.remove('open'); }
+function switchTab(m) {
+  const l = m === 'login';
+  document.getElementById('tab-login').className    = 'auth-tab' + (l ? ' active' : '');
+  document.getElementById('tab-register').className = 'auth-tab' + (!l ? ' active' : '');
+  document.getElementById('auth-title').textContent = l ? 'Welcome back' : 'Join Orbit';
+  document.getElementById('auth-sub').textContent   = l ? 'Sign in to your account' : 'Start posting to the globe';
+  document.getElementById('auth-cta').textContent   = l ? 'Sign in' : 'Create account';
+  document.getElementById('field-name').style.display = l ? 'none' : 'block';
+}
+document.getElementById('auth-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('auth-modal')) closeAuth();
+});
+
+// ─── UPLOAD ───────────────────────────────────────────────────────────────────
+function openUpload() { document.getElementById('upload-modal').classList.add('open'); }
+function closeUpload() { document.getElementById('upload-modal').classList.remove('open'); }
+function setType(t) {
+  document.getElementById('type-photo').className = t==='photo' ? 'active' : '';
+  document.getElementById('type-voice').className = t==='voice' ? 'active' : '';
+  document.getElementById('photo-section').style.display = t==='photo' ? 'block' : 'none';
+  document.getElementById('voice-section').style.display = t==='voice' ? 'block' : 'none';
+}
+function previewImage(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => { const i = document.getElementById('img-preview'); i.src = ev.target.result; i.style.display = 'block'; };
+  r.readAsDataURL(f);
+}
+let recording = false;
+function toggleRecord() {
+  recording = !recording;
+  document.getElementById('rec-icon').textContent = recording ? '⏹' : '⏺';
+  document.getElementById('rec-label').textContent = recording ? 'Recording… tap to stop' : 'Tap to record';
+}
+function submitPost() { closeUpload(); alert('Your moment has been posted to the globe ✨'); }
+document.getElementById('upload-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('upload-modal')) closeUpload();
+});
+
+setTimeout(() => { document.getElementById('hint').style.opacity = '0'; }, 5500);
+setInterval(() => {
+  const d = Math.floor(Math.random() * 6) - 2;
+  document.getElementById('live-label').textContent = (247 + d) + ' active now';
+}, 3500);
+
+// ─── CONNECTION STATUS ────────────────────────────────────────────────────────
+function updateStatus() {
+  const dot   = document.getElementById('status-dot');
+  const label = document.getElementById('status-label');
+  if (navigator.onLine) {
+    dot.className   = 'status-dot connected';
+    label.textContent = 'Status: Connected';
+  } else {
+    dot.className   = 'status-dot disconnected';
+    label.textContent = 'Status: Disconnected';
+  }
+}
+updateStatus();
+window.addEventListener('online',  updateStatus);
+window.addEventListener('offline', updateStatus);
+</script>
+</body>
+</html>
