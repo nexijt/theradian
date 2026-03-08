@@ -35,10 +35,11 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
       // Check if image is square; if not, show cropper
       const url = URL.createObjectURL(f);
       const img = new Image();
-      img.onload = () => {
-        if (img.width === img.height) {
-          setFile(f);
-          setPreview(url);
+      img.onload = async () => {
+        if (img.width === img.height && img.width <= 1200) {
+          const compressed = await compressImage(f);
+          setFile(compressed);
+          setPreview(URL.createObjectURL(compressed));
           setShowCropper(false);
         } else {
           setRawImageSrc(url);
