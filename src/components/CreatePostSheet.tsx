@@ -62,9 +62,10 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
     }
   }, [postType, toast]);
 
-  const handleCropDone = useCallback((croppedFile: File) => {
-    setFile(croppedFile);
-    setPreview(URL.createObjectURL(croppedFile));
+  const handleCropDone = useCallback(async (croppedFile: File) => {
+    const compressed = await compressImage(croppedFile);
+    setFile(compressed);
+    setPreview(URL.createObjectURL(compressed));
     setShowCropper(false);
     setRawImageSrc(null);
   }, []);
