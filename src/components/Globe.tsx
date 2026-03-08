@@ -464,16 +464,17 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
       el.style.display = "none";
       el.style.opacity = "0";
 
+      const tagLabel = post.tag ? `[${post.tag}]` : (post.type === "photo" ? "[PHOTO]" : "[AUDIO]");
       if (post.type === "photo") {
         const snippet = post.caption.split(" ").slice(0, 4).join(" ") + "…";
-        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:hsl(228,100%,55%);text-align:center">[ photo ]</div><div style="font-size:0.66rem;font-style:italic;color:#666;white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${snippet}</div>`;
+        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:hsl(228,100%,55%);text-align:center">${tagLabel}</div><div style="font-size:0.66rem;font-style:italic;color:#666;white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${snippet}</div>`;
       } else if (post.type === "audio") {
         const bars = Array.from({ length: 7 }, () => {
           const dur = (0.35 + Math.random() * 0.5).toFixed(2);
           const del = (Math.random() * 0.4).toFixed(2);
           return `<div class="voice-bar" style="--dur:${dur}s;animation-delay:${del}s"></div>`;
         }).join("");
-        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.42rem;letter-spacing:0.1em;text-transform:uppercase;color:hsl(228,100%,55%);line-height:1;text-align:center">${post.category || "[AUDIO]"}</div><div class="voice-bars">${bars}</div>`;
+        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.42rem;letter-spacing:0.1em;text-transform:uppercase;color:hsl(228,100%,55%);line-height:1;text-align:center">${tagLabel}</div><div class="voice-bars">${bars}</div>`;
       }
 
       el.addEventListener("click", (e) => {
