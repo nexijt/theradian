@@ -40,6 +40,7 @@ interface GlobeProps {
   posts: FeedPost[];
   onPostClick: (post: FeedPost) => void;
   onSpinComplete?: () => void;
+  paused?: boolean;
 }
 
 export default function Globe({ posts, onPostClick, onSpinComplete }: GlobeProps) {
