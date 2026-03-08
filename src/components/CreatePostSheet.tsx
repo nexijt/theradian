@@ -129,6 +129,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
     setShowCropper(false);
     setCaption("");
     setAudioTag("MUSIC");
+    setPhotoTag("PHOTO");
   };
 
   return (
