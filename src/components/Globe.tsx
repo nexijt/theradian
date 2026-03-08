@@ -288,7 +288,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
 
         const sp = toScreen(_wPos);
         const eased = easeInOut(prog);
-        (p.dot.material as THREE.MeshBasicMaterial).opacity = p.data.type === "dot" ? 0 : Math.min(0.45, prog * 1.5);
+        (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(0.45, prog * 1.5);
 
         const normalWorld = _nrm.clone();
         const tipWorld = _wPos.clone().add(normalWorld.clone().multiplyScalar(0.18));
