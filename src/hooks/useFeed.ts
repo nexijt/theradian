@@ -14,6 +14,7 @@ export interface FeedPost {
   category?: string;
   mediaUrl?: string;
   displayName?: string;
+  tag?: string;
 }
 
 function dbPostToFeedPost(post: PostWithProfile): FeedPost {
