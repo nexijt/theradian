@@ -53,12 +53,6 @@ export default function PostPanel({ post, onClose }: PostPanelProps) {
 
       {post.type === "audio" && (
         <div className="mb-3.5">
-          {post.tag && (
-            <div className="font-mono text-[0.5rem] tracking-[0.14em] uppercase text-primary mb-2 px-2 py-1 rounded-sm inline-block"
-              style={{ background: "hsl(228 100% 55% / 0.08)", border: "1px solid hsl(228 100% 55% / 0.15)" }}>
-              {post.tag}
-            </div>
-          )}
           {post.mediaUrl ? (
             <AudioPlayer src={post.mediaUrl} />
           ) : (

@@ -213,28 +213,29 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         </div>
       )}
 
-      {/* Audio tag selector */}
-      {postType === "audio" && (
-        <div className="mb-5">
-          <label className="block font-mono text-[0.58rem] tracking-[0.12em] uppercase text-muted-foreground mb-2">
-            Tag
-          </label>
-          <div className="flex gap-1.5 flex-wrap">
-            {AUDIO_TAGS.map((tag) => (
+      {/* Tag selector */}
+      <div className="mb-5">
+        <label className="block font-mono text-[0.58rem] tracking-[0.12em] uppercase text-muted-foreground mb-2">
+          Tag
+        </label>
+        <div className="flex gap-1.5 flex-wrap">
+          {(postType === "audio" ? AUDIO_TAGS : PHOTO_TAGS).map((tag) => {
+            const selected = postType === "audio" ? audioTag === tag : photoTag === tag;
+            return (
               <button
                 key={tag}
                 className={`font-mono text-[0.52rem] tracking-[0.1em] uppercase px-3 py-1.5 rounded-sm border transition-all ${
-                  audioTag === tag ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
+                  selected ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
                 }`}
-                style={audioTag !== tag ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
-                onClick={() => setAudioTag(tag)}
+                style={!selected ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
+                onClick={() => postType === "audio" ? setAudioTag(tag) : setPhotoTag(tag)}
               >
                 [{tag}]
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Caption */}
       <div className="mb-5">
