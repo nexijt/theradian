@@ -107,21 +107,6 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
               style={{ borderColor: "hsl(0 0% 10% / 0.12)" }}
             />
           </div>
-          {tab === "register" && (
-            <div>
-              <label className="block font-mono text-[0.58rem] tracking-[0.12em] uppercase text-muted-foreground mb-2">
-                Display name
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="How you appear on the globe"
-                className="w-full bg-foreground/[0.04] border rounded-sm px-3.5 py-2.5 font-serif text-base text-foreground outline-none transition-colors focus:border-primary"
-                style={{ borderColor: "hsl(0 0% 10% / 0.12)" }}
-              />
-            </div>
-          )}
         </div>
 
         <div className="flex gap-2.5 justify-end mt-6">
