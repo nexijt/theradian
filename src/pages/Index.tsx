@@ -110,10 +110,9 @@ const Index = () => {
 
       {/* Hint */}
       <div
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 font-mono text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground z-50 pointer-events-none transition-opacity duration-1000"
-        style={{ opacity: showHint ? 1 : 0 }}
+        className="fixed bottom-8 left-1/2 -translate-x-1/2 font-mono text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground z-50 pointer-events-none"
       >
-        Drag to explore · Click a dot to open a post
+        Drag to explore · Click a dot to see log
       </div>
 
       {/* Live count */}
