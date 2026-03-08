@@ -333,26 +333,11 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
         const dotFadeStart = 0.55;
         if (prog > dotFadeStart) {
           const dotAlpha = Math.min(1, (prog - dotFadeStart) / 0.25);
-          if (p.data.type === "dot") {
-            p._drawnX = midX;
-            p._drawnY = midY;
-            ctx2d.beginPath();
-            ctx2d.arc(midX, midY, 4, 0, Math.PI * 2);
-            ctx2d.fillStyle = `rgba(26,74,255,${dotAlpha})`;
-            ctx2d.fill();
-            ctx2d.beginPath();
-            ctx2d.arc(midX, midY, 7, 0, Math.PI * 2);
-            ctx2d.strokeStyle = `rgba(26,74,255,${dotAlpha * 0.22})`;
-            ctx2d.lineWidth = 1.5;
-            ctx2d.stroke();
-            p.el.style.display = "none";
-          } else {
-            p.el.style.display = "block";
-            p.el.style.left = midX + "px";
-            p.el.style.top = midY + "px";
-            p.el.style.opacity = String(dotAlpha);
-            p.el.style.pointerEvents = dotAlpha > 0.4 ? "all" : "none";
-          }
+          p.el.style.display = "block";
+          p.el.style.left = midX + "px";
+          p.el.style.top = midY + "px";
+          p.el.style.opacity = String(dotAlpha);
+          p.el.style.pointerEvents = dotAlpha > 0.4 ? "all" : "none";
         } else {
           p.el.style.display = "none";
         }
