@@ -101,27 +101,62 @@ export async function createPost(params: {
   return data;
 }
 
+const MAX_IMAGE_DIMENSION = 1200;
+const IMAGE_QUALITY = 0.75;
+
+/** Compress and optionally resize an image file before upload */
+export function compressImage(file: File, maxDim = MAX_IMAGE_DIMENSION, quality = IMAGE_QUALITY): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width;
+      let h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const ratio = Math.min(maxDim / w, maxDim / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject(new Error("Failed to compress image"));
+          resolve(new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 export function squareImage(file: File): Promise<File> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const size = Math.max(img.width, img.height);
+      const size = Math.min(Math.max(img.width, img.height), MAX_IMAGE_DIMENSION);
       const canvas = document.createElement("canvas");
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext("2d")!;
       ctx.fillStyle = "#f4f1eb";
       ctx.fillRect(0, 0, size, size);
-      const x = (size - img.width) / 2;
-      const y = (size - img.height) / 2;
-      ctx.drawImage(img, x, y);
+      const scale = Math.min(size / img.width, size / img.height);
+      const sw = img.width * scale;
+      const sh = img.height * scale;
+      ctx.drawImage(img, (size - sw) / 2, (size - sh) / 2, sw, sh);
       canvas.toBlob(
         (blob) => {
           if (!blob) return reject(new Error("Failed to create square image"));
           resolve(new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }));
         },
         "image/jpeg",
-        0.9
+        IMAGE_QUALITY
       );
     };
     img.onerror = reject;
