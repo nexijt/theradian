@@ -1,26 +1,31 @@
 /**
  * Trims an audio file to the first `maxSeconds` seconds using the Web Audio API.
- * Returns the original file if it's already shorter.
+ * Also downmixes to mono and resamples to 22050 Hz for compression.
+ * Returns the original file if it's already shorter than maxSeconds AND small enough.
  */
 export async function trimAudioToSeconds(file: File, maxSeconds: number): Promise<File> {
   const arrayBuffer = await file.arrayBuffer();
   const audioCtx = new AudioContext();
   const decoded = await audioCtx.decodeAudioData(arrayBuffer);
 
-  if (decoded.duration <= maxSeconds) {
+  const needsTrim = decoded.duration > maxSeconds;
+  const needsCompress = file.size > 500_000; // compress if > 500KB
+
+  if (!needsTrim && !needsCompress) {
     audioCtx.close();
     return file;
   }
 
-  const sampleRate = decoded.sampleRate;
-  const channels = decoded.numberOfChannels;
-  const maxSamples = Math.floor(maxSeconds * sampleRate);
+  const targetSampleRate = 22050; // reduced from typical 44100
+  const duration = needsTrim ? maxSeconds : decoded.duration;
+  const maxSamples = Math.floor(duration * targetSampleRate);
 
-  const offlineCtx = new OfflineAudioContext(channels, maxSamples, sampleRate);
+  // Render to mono at lower sample rate
+  const offlineCtx = new OfflineAudioContext(1, maxSamples, targetSampleRate);
   const source = offlineCtx.createBufferSource();
   source.buffer = decoded;
   source.connect(offlineCtx.destination);
-  source.start(0, 0, maxSeconds);
+  source.start(0, 0, duration);
 
   const rendered = await offlineCtx.startRendering();
   audioCtx.close();
