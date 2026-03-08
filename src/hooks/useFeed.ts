@@ -106,7 +106,7 @@ export function useFeed() {
           location: p.location,
           caption: p.caption,
           time: p.time,
-          type: p.type === "dot" ? "dot" : p.type as "photo" | "audio",
+          type: p.type as "photo" | "audio",
           category: "category" in p ? (p as any).category : undefined,
           createdAt: new Date().toISOString(),
         } as FeedPost));
