@@ -152,13 +152,6 @@ export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
       if (!drag.isDragging) return;
       drag.isDragging = false;
       drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
-
-      // Check if a full spin segment happened
-      const delta = Math.abs(spinGroup.rotation.y - drag.lastSpinY);
-      if (delta > Math.PI / 2) {
-        drag.lastSpinY = spinGroup.rotation.y;
-        onSpinCompleteRef.current?.();
-      }
     }
     function onTouchStart(e: TouchEvent) {
       drag.isDragging = true;
