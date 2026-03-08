@@ -1,0 +1,254 @@
+import React, { useState, useRef, useCallback } from "react";
+import { createPost, squareImage, hasPostedToday } from "@/lib/posts";
+import { useToast } from "@/hooks/use-toast";
+
+interface CreatePostSheetProps {
+  open: boolean;
+  onClose: () => void;
+  userId: string;
+  onPostCreated: () => void;
+}
+
+export default function CreatePostSheet({ open, onClose, userId, onPostCreated }: CreatePostSheetProps) {
+  const [postType, setPostType] = useState<"photo" | "audio">("photo");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+  const [city, setCity] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [locationMethod, setLocationMethod] = useState<"auto" | "manual">("auto");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+
+    if (postType === "photo") {
+      // Auto-square the image
+      try {
+        const squared = await squareImage(f);
+        setFile(squared);
+        setPreview(URL.createObjectURL(squared));
+      } catch {
+        setFile(f);
+        setPreview(URL.createObjectURL(f));
+      }
+    } else {
+      // Audio file
+      if (!f.name.match(/\.(mp3|wav)$/i)) {
+        toast({ title: "Only .mp3 and .wav files are accepted", variant: "destructive" });
+        return;
+      }
+      setFile(f);
+      setPreview(null);
+    }
+  }, [postType, toast]);
+
+  const handleSubmit = async () => {
+    if (!file) {
+      toast({ title: `Please attach a ${postType} file`, variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Check daily limit
+      const alreadyPosted = await hasPostedToday(userId, postType);
+      if (alreadyPosted) {
+        toast({ title: `You've already posted a ${postType} today. Come back tomorrow!`, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
+      let lat: number | undefined;
+      let lon: number | undefined;
+      let cityVal = city || undefined;
+      let country: string | undefined;
+
+      if (locationMethod === "auto") {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+          });
+          lat = pos.coords.latitude;
+          lon = pos.coords.longitude;
+        } catch {
+          // Geolocation failed, use manual
+        }
+      }
+
+      await createPost({
+        userId,
+        type: postType,
+        file,
+        caption,
+        latitude: lat,
+        longitude: lon,
+        city: cityVal,
+        country,
+      });
+
+      toast({ title: "Your moment has been posted to the globe ✨" });
+      onPostCreated();
+      resetForm();
+      onClose();
+    } catch (err: any) {
+      toast({ title: err.message || "Failed to post", variant: "destructive" });
+    }
+    setLoading(false);
+  };
+
+  const resetForm = () => {
+    setFile(null);
+    setPreview(null);
+    setCaption("");
+    setCity("");
+  };
+
+  return (
+    <div
+      className="fixed inset-y-0 left-0 z-[80] w-[340px] max-w-[90vw] p-8 overflow-y-auto transition-transform duration-500"
+      style={{
+        transform: open ? "translateX(0)" : "translateX(-100%)",
+        background: "hsla(36,24%,94%,0.97)",
+        borderRight: "1px solid hsl(0 0% 10% / 0.09)",
+        backdropFilter: "blur(10px)",
+      }}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 bg-transparent border-none cursor-pointer text-muted-foreground hover:text-foreground text-base"
+      >
+        ✕
+      </button>
+
+      <h2 className="text-2xl font-light italic mb-1">Today's moment</h2>
+      <p className="font-mono text-[0.58rem] tracking-[0.14em] uppercase text-muted-foreground mb-6">
+        One post · Once a day · Placed on the globe
+      </p>
+
+      {/* Type toggle */}
+      <div className="flex mb-5 border rounded-sm overflow-hidden" style={{ borderColor: "hsl(0 0% 10% / 0.12)" }}>
+        <button
+          className={`flex-1 py-2 font-mono text-[0.58rem] tracking-[0.1em] uppercase border-none cursor-pointer transition-all ${
+            postType === "photo" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"
+          }`}
+          onClick={() => { setPostType("photo"); setFile(null); setPreview(null); }}
+        >
+          📷 Photo
+        </button>
+        <button
+          className={`flex-1 py-2 font-mono text-[0.58rem] tracking-[0.1em] uppercase border-none cursor-pointer transition-all ${
+            postType === "audio" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"
+          }`}
+          onClick={() => { setPostType("audio"); setFile(null); setPreview(null); }}
+        >
+          🎙 Audio
+        </button>
+      </div>
+
+      {/* File upload */}
+      <div
+        className="w-full border-dashed border-[1.5px] rounded-sm flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors hover:border-primary hover:text-primary mb-5 relative overflow-hidden"
+        style={{
+          aspectRatio: postType === "photo" ? "1/1" : "16/9",
+          borderColor: "hsl(0 0% 10% / 0.18)",
+        }}
+        onClick={() => fileRef.current?.click()}
+      >
+        <input
+          ref={fileRef}
+          type="file"
+          accept={postType === "photo" ? "image/*" : ".mp3,.wav"}
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        {preview && postType === "photo" ? (
+          <img src={preview} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
+        ) : file && postType === "audio" ? (
+          <div className="text-center">
+            <span className="text-2xl">🎵</span>
+            <p className="font-mono text-[0.55rem] tracking-[0.1em] uppercase text-muted-foreground mt-1">{file.name}</p>
+          </div>
+        ) : (
+          <>
+            <span className="text-xl">↑</span>
+            <span className="font-mono text-[0.6rem] tracking-[0.12em] uppercase text-muted-foreground">
+              {postType === "photo" ? "Tap to upload photo" : "Tap to upload .mp3 or .wav"}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Caption */}
+      <div className="mb-5">
+        <label className="block font-mono text-[0.58rem] tracking-[0.12em] uppercase text-muted-foreground mb-2">
+          Caption (optional)
+        </label>
+        <textarea
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          placeholder="A few words about this moment…"
+          className="w-full bg-foreground/[0.04] border rounded-sm px-3.5 py-2.5 font-serif text-base text-foreground outline-none transition-colors focus:border-primary resize-none h-20 leading-relaxed"
+          style={{ borderColor: "hsl(0 0% 10% / 0.12)" }}
+        />
+      </div>
+
+      {/* Location */}
+      <div className="mb-5">
+        <label className="block font-mono text-[0.58rem] tracking-[0.12em] uppercase text-muted-foreground mb-2">
+          Location
+        </label>
+        <div className="flex gap-2 mb-2">
+          <button
+            className={`flex-1 py-1.5 font-mono text-[0.52rem] tracking-[0.1em] uppercase rounded-sm border transition-all ${
+              locationMethod === "auto" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
+            }`}
+            style={locationMethod !== "auto" ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
+            onClick={() => setLocationMethod("auto")}
+          >
+            📍 Auto-detect
+          </button>
+          <button
+            className={`flex-1 py-1.5 font-mono text-[0.52rem] tracking-[0.1em] uppercase rounded-sm border transition-all ${
+              locationMethod === "manual" ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
+            }`}
+            style={locationMethod !== "manual" ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
+            onClick={() => setLocationMethod("manual")}
+          >
+            ✏️ Enter city
+          </button>
+        </div>
+        {locationMethod === "manual" && (
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="e.g. London, UK"
+            className="w-full bg-foreground/[0.04] border rounded-sm px-3.5 py-2.5 font-serif text-base text-foreground outline-none transition-colors focus:border-primary"
+            style={{ borderColor: "hsl(0 0% 10% / 0.12)" }}
+          />
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2.5 justify-end">
+        <button
+          onClick={() => { resetForm(); onClose(); }}
+          className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm border transition-all hover:border-primary hover:text-primary"
+          style={{ borderColor: "hsl(0 0% 10% / 0.2)" }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm bg-primary text-primary-foreground transition-all hover:bg-primary-light disabled:opacity-50"
+        >
+          {loading ? "Posting..." : "Post to globe"}
+        </button>
+      </div>
+    </div>
+  );
+}
