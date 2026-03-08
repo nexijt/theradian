@@ -147,7 +147,7 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
       if (!drag.isDragging) return;
       const dx = e.clientX - drag.prevX;
       if (Math.abs(dx) > 2) drag.dragMoved = true;
-      drag.rotVel = dx * 0.005;
+      drag.rotVel = Math.max(-0.06, Math.min(0.06, dx * 0.005));
       spinGroup.rotation.y += drag.rotVel;
       drag.prevX = e.clientX;
     }
@@ -173,7 +173,7 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
     function onTouchMove(e: TouchEvent) {
       const dx = e.touches[0].clientX - drag.prevX;
       if (Math.abs(dx) > 2) drag.dragMoved = true;
-      drag.rotVel = dx * 0.005;
+      drag.rotVel = Math.max(-0.06, Math.min(0.06, dx * 0.005));
       spinGroup.rotation.y += drag.rotVel;
       drag.prevX = e.touches[0].clientX;
     }
@@ -344,6 +344,13 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
       } else if (!pausedRef.current && !drag.isDragging) {
         drag.rotVel *= 0.92;
         spinGroup.rotation.y += drag.rotVel;
+
+        // Check for spin completion during inertia
+        const delta = Math.abs(spinGroup.rotation.y - drag.lastSpinY);
+        if (delta > Math.PI / 2) {
+          drag.lastSpinY = spinGroup.rotation.y;
+          onSpinCompleteRef.current?.();
+        }
       }
       renderer.render(scene, camera);
       drawOverlay();
