@@ -13,6 +13,7 @@ export interface PostWithProfile {
   user_id: string;
   username: string;
   display_name: string | null;
+  tag: string | null;
 }
 
 export async function fetchPosts(offset: number, limit: number = 20): Promise<PostWithProfile[]> {
