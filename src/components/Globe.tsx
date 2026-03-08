@@ -268,7 +268,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
         if (p.isHidden) {
           targetVis = 0;
         } else {
-          targetVis = Math.max(0, Math.min(1, (facing + 0.03) / 0.20));
+          targetVis = Math.max(0, Math.min(1, (facing - 0.15) / 0.25));
         }
 
         p.progress += (targetVis - p.progress) * EASE;
