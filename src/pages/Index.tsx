@@ -104,7 +104,6 @@ const Index = () => {
       <Globe
         posts={currentPosts}
         onPostClick={handlePostClick}
-        onSpinComplete={loadNextSpin}
         paused={!!selectedPost}
       />
 
