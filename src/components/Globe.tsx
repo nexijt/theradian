@@ -92,9 +92,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     const overlayCanvas = overlayRef.current!;
     const ctx2d = overlayCanvas.getContext("2d")!;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0xf4f1eb, 1);
+    renderer.setClearColor(0xf4f1eb, 0);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 1000);
