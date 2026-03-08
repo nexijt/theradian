@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from "react";
-import { createPost, hasPostedToday } from "@/lib/posts";
+import { createPost, hasPostedToday, compressImage } from "@/lib/posts";
 import { trimAudioToSeconds } from "@/lib/audio-utils";
 import { useToast } from "@/hooks/use-toast";
 import ImageCropper from "./ImageCropper";
