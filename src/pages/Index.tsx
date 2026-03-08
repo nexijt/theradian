@@ -93,7 +93,7 @@ const Index = () => {
                 onClick={handlePost}
                 className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm bg-primary text-primary-foreground transition-all hover:bg-primary-light"
               >
-                Post today
+                Log today
               </button>
             </>
           )}
