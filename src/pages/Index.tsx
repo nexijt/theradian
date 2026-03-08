@@ -105,6 +105,7 @@ const Index = () => {
         posts={currentPosts}
         onPostClick={handlePostClick}
         onSpinComplete={loadNextSpin}
+        paused={!!selectedPost}
       />
 
       {/* Hint */}
