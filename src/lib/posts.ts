@@ -67,6 +67,7 @@ export async function createPost(params: {
   longitude?: number;
   city?: string;
   country?: string;
+  tag?: string;
 }) {
   const bucket = params.type === "photo" ? "photos" : "audio";
   const ext = params.file.name.split(".").pop();
