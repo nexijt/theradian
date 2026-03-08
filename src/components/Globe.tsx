@@ -277,7 +277,7 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
           ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
           ctx2d.lineTo(Math.round(midX), Math.round(midY));
           ctx2d.strokeStyle = `rgba(26,74,255,${0.5 * eased})`;
-          ctx2d.lineWidth = 0.9;
+          ctx2d.lineWidth = 1.3;
           ctx2d.stroke();
         }
 
