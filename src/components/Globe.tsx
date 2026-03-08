@@ -339,9 +339,9 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
     let animId: number;
     function animate() {
       animId = requestAnimationFrame(animate);
-      if (drag.autoRotate && !drag.isDragging) {
+      if (!pausedRef.current && drag.autoRotate && !drag.isDragging) {
         spinGroup.rotation.y -= 0.0009;
-      } else if (!drag.isDragging) {
+      } else if (!pausedRef.current && !drag.isDragging) {
         drag.rotVel *= 0.92;
         spinGroup.rotation.y += drag.rotVel;
       }
