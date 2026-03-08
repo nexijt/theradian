@@ -39,11 +39,10 @@ interface PostObject {
 interface GlobeProps {
   posts: FeedPost[];
   onPostClick: (post: FeedPost) => void;
-  onSpinComplete?: () => void;
   paused?: boolean;
 }
 
-export default function Globe({ posts, onPostClick, onSpinComplete, paused }: GlobeProps) {
+export default function Globe({ posts, onPostClick, paused }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
