@@ -70,6 +70,8 @@ export default function Globe({ posts, onPostClick, onSpinComplete, paused }: Gl
   onPostClickRef.current = onPostClick;
   const onSpinCompleteRef = useRef(onSpinComplete);
   onSpinCompleteRef.current = onSpinComplete;
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   const W = useCallback(() => window.innerWidth, []);
   const H = useCallback(() => window.innerHeight, []);
