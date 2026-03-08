@@ -18,8 +18,26 @@ export interface FeedPost {
   createdAt: string; // ISO string for ordering
 }
 
+function formatPostTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const postDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  if (postDay.getTime() === today.getTime()) {
+    return `Today at ${timeStr}`;
+  } else if (postDay.getTime() === yesterday.getTime()) {
+    return `Yesterday at ${timeStr}`;
+  } else {
+    const dateFormatted = date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+    return `Posted on ${dateFormatted} at ${timeStr}`;
+  }
+}
+
 function dbPostToFeedPost(post: PostWithProfile): FeedPost {
-  const time = new Date(post.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const time = formatPostTime(post.created_at);
   const location = [post.city, post.country].filter(Boolean).join(", ") || "Unknown";
   return {
     id: post.id,
