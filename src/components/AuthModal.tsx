@@ -34,7 +34,7 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
         await signIn(username, password);
         toast({ title: "Welcome back!" });
       } else {
-        await signUp(username, password, displayName || username);
+        await signUp(username, password, username);
         toast({ title: "Account created! Welcome to RADIAN." });
       }
       onClose();
