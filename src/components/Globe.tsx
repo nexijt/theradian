@@ -382,23 +382,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     }
     animate();
 
-    overlayCanvas.addEventListener("click", (e) => {
-      const s = sceneRef.current;
-      if (!s) return;
-      const rect = overlayCanvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      let hit: PostObject | null = null;
-      let bestDist = 16;
-      s.postObjects.forEach((p) => {
-        if (p.data.type !== "dot" || p.progress <= 0.55) return;
-        const dist = Math.sqrt((mx - p._drawnX) ** 2 + (my - p._drawnY) ** 2);
-        if (dist < bestDist) { bestDist = dist; hit = p; }
-      });
-      if (hit) {
-        onPostClickRef.current((hit as PostObject).data);
-      }
-    });
+    // No canvas click handler needed — all posts use HTML elements with click handlers
 
     return () => {
       cancelAnimationFrame(animId);
