@@ -30,7 +30,7 @@ const Index = () => {
 
   useEffect(() => {
     const iv = setInterval(() => {
-      setActiveCount((c) => c + Math.floor(Math.random() * 6) - 2);
+      setActiveCount((c) => Math.max(15, Math.min(25, c + Math.floor(Math.random() * 3) - 1)));
     }, 3500);
     return () => clearInterval(iv);
   }, []);
