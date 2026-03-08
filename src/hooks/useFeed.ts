@@ -40,6 +40,7 @@ export function useFeed() {
   const [loading, setLoading] = useState(false);
   const offsetRef = useRef(0);
   const queueRef = useRef<FeedPost[]>([]);
+  const allPostsRef = useRef<FeedPost[]>([]);
   const useMockRef = useRef(false);
 
   const loadInitial = useCallback(async () => {
@@ -47,9 +48,8 @@ export function useFeed() {
     try {
       const posts = await fetchPosts(0, 20);
       if (posts.length === 0) {
-        // Use mock data as fallback
         useMockRef.current = true;
-        setCurrentPosts(MOCK_POSTS.map((p, i) => ({
+        const mocks = MOCK_POSTS.map((p, i) => ({
           id: `mock-${i}`,
           lat: p.lat,
           lon: p.lon,
@@ -59,21 +59,22 @@ export function useFeed() {
           time: p.time,
           type: p.type === "dot" ? "dot" : p.type as "photo" | "audio",
           category: "category" in p ? (p as any).category : undefined,
-        })));
+        } as FeedPost));
+        allPostsRef.current = mocks;
+        setCurrentPosts(mocks);
       } else {
         useMockRef.current = false;
         const feedPosts = posts.map(dbPostToFeedPost);
-        // Show first 10, queue the rest
-        const visible = filterByLocation(feedPosts.slice(0, 10));
-        const queued = feedPosts.slice(10);
-        queueRef.current = queued;
+        allPostsRef.current = feedPosts;
+        // Show first batch, queue the rest (including location-deferred ones)
+        const { visible, deferred } = splitByLocation(feedPosts, 10);
+        queueRef.current = deferred;
         setCurrentPosts(visible);
         offsetRef.current = 20;
       }
     } catch {
-      // Fallback to mocks
       useMockRef.current = true;
-      setCurrentPosts(MOCK_POSTS.map((p, i) => ({
+      const mocks = MOCK_POSTS.map((p, i) => ({
         id: `mock-${i}`,
         lat: p.lat,
         lon: p.lon,
@@ -83,35 +84,48 @@ export function useFeed() {
         time: p.time,
         type: p.type === "dot" ? "dot" : p.type as "photo" | "audio",
         category: "category" in p ? (p as any).category : undefined,
-      })));
+      } as FeedPost));
+      allPostsRef.current = mocks;
+      setCurrentPosts(mocks);
     }
     setLoading(false);
   }, []);
 
   const loadNextSpin = useCallback(async () => {
-    if (useMockRef.current) return; // Mock data doesn't paginate
+    if (useMockRef.current) return;
 
-    // First show queued posts
+    // Show queued/deferred posts first
     if (queueRef.current.length > 0) {
-      const next = filterByLocation(queueRef.current.splice(0, 10));
-      setCurrentPosts(next);
-      return;
-    }
-
-    // Fetch more from DB
-    try {
-      const posts = await fetchPosts(offsetRef.current, 20);
-      if (posts.length === 0) {
-        offsetRef.current = 0; // Loop back
+      const { visible, deferred } = splitByLocation(queueRef.current, 10);
+      queueRef.current = deferred;
+      if (visible.length > 0) {
+        setCurrentPosts(visible);
         return;
       }
-      const feedPosts = posts.map(dbPostToFeedPost);
-      const visible = filterByLocation(feedPosts.slice(0, 10));
-      queueRef.current = feedPosts.slice(10);
-      setCurrentPosts(visible);
-      offsetRef.current += 20;
+    }
+
+    // Try fetching more from DB
+    try {
+      const posts = await fetchPosts(offsetRef.current, 20);
+      if (posts.length > 0) {
+        const feedPosts = posts.map(dbPostToFeedPost);
+        allPostsRef.current = [...allPostsRef.current, ...feedPosts];
+        const { visible, deferred } = splitByLocation(feedPosts, 10);
+        queueRef.current = deferred;
+        setCurrentPosts(visible);
+        offsetRef.current += 20;
+        return;
+      }
     } catch {
-      // Keep current posts
+      // Fall through to loop
+    }
+
+    // No more posts — loop back to the beginning
+    offsetRef.current = 0;
+    if (allPostsRef.current.length > 0) {
+      const { visible, deferred } = splitByLocation(allPostsRef.current, 10);
+      queueRef.current = deferred;
+      setCurrentPosts(visible);
     }
   }, []);
 
