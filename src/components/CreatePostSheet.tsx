@@ -4,7 +4,8 @@ import { trimAudioToSeconds } from "@/lib/audio-utils";
 import { useToast } from "@/hooks/use-toast";
 import ImageCropper from "./ImageCropper";
 
-const AUDIO_TAGS = ["MUSIC", "VA", "WRITING", "SFX"] as const;
+const AUDIO_TAGS = ["MUSIC", "VOICE", "WRITING", "SFX"] as const;
+const PHOTO_TAGS = ["PHOTO", "DESIGN", "WRITING", "MATTER"] as const;
 
 interface CreatePostSheetProps {
   open: boolean;
