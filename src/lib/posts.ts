@@ -13,6 +13,7 @@ export interface PostWithProfile {
   user_id: string;
   username: string;
   display_name: string | null;
+  tag: string | null;
 }
 
 export async function fetchPosts(offset: number, limit: number = 20): Promise<PostWithProfile[]> {
@@ -66,6 +67,7 @@ export async function createPost(params: {
   longitude?: number;
   city?: string;
   country?: string;
+  tag?: string;
 }) {
   const bucket = params.type === "photo" ? "photos" : "audio";
   const ext = params.file.name.split(".").pop();
@@ -90,7 +92,8 @@ export async function createPost(params: {
       longitude: params.longitude || null,
       city: params.city || null,
       country: params.country || null,
-    })
+      tag: params.tag || null,
+    } as any)
     .select()
     .single();
 

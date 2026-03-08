@@ -40,9 +40,10 @@ interface GlobeProps {
   posts: FeedPost[];
   onPostClick: (post: FeedPost) => void;
   onSpinComplete?: () => void;
+  paused?: boolean;
 }
 
-export default function Globe({ posts, onPostClick, onSpinComplete }: GlobeProps) {
+export default function Globe({ posts, onPostClick, onSpinComplete, paused }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
@@ -69,6 +70,8 @@ export default function Globe({ posts, onPostClick, onSpinComplete }: GlobeProps
   onPostClickRef.current = onPostClick;
   const onSpinCompleteRef = useRef(onSpinComplete);
   onSpinCompleteRef.current = onSpinComplete;
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   const W = useCallback(() => window.innerWidth, []);
   const H = useCallback(() => window.innerHeight, []);
@@ -336,9 +339,9 @@ export default function Globe({ posts, onPostClick, onSpinComplete }: GlobeProps
     let animId: number;
     function animate() {
       animId = requestAnimationFrame(animate);
-      if (drag.autoRotate && !drag.isDragging) {
+      if (!pausedRef.current && drag.autoRotate && !drag.isDragging) {
         spinGroup.rotation.y -= 0.0009;
-      } else if (!drag.isDragging) {
+      } else if (!pausedRef.current && !drag.isDragging) {
         drag.rotVel *= 0.92;
         spinGroup.rotation.y += drag.rotVel;
       }

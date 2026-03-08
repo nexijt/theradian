@@ -14,6 +14,7 @@ export interface FeedPost {
   category?: string;
   mediaUrl?: string;
   displayName?: string;
+  tag?: string;
 }
 
 function dbPostToFeedPost(post: PostWithProfile): FeedPost {
@@ -30,6 +31,7 @@ function dbPostToFeedPost(post: PostWithProfile): FeedPost {
     type: post.type as "photo" | "audio",
     mediaUrl: post.media_url,
     displayName: post.display_name || undefined,
+    tag: post.tag || undefined,
   };
 }
 
