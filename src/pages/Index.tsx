@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Globe from "@/components/Globe";
 import AuthModal from "@/components/AuthModal";
 import PostPanel from "@/components/PostPanel";
@@ -17,6 +17,7 @@ const Index = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
   const [activeCount, setActiveCount] = useState(Math.floor(Math.random() * 11) + 15);
+  const [spinToLon, setSpinToLon] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -35,10 +36,35 @@ const Index = () => {
     return () => clearInterval(iv);
   }, []);
 
+  // Sort posts by longitude for next/prev navigation
+  const postsByLon = useMemo(() => {
+    return [...currentPosts].sort((a, b) => a.lon - b.lon);
+  }, [currentPosts]);
+
   const handlePostClick = useCallback((post: FeedPost) => {
     setSelectedPost(post);
     setShowHint(false);
   }, []);
+
+  const handleNextPost = useCallback(() => {
+    if (!selectedPost || postsByLon.length === 0) return;
+    const idx = postsByLon.findIndex(p => p.id === selectedPost.id);
+    if (idx === -1) return;
+    const nextIdx = (idx + 1) % postsByLon.length;
+    const next = postsByLon[nextIdx];
+    setSelectedPost(next);
+    setSpinToLon(next.lon);
+  }, [selectedPost, postsByLon]);
+
+  const handlePrevPost = useCallback(() => {
+    if (!selectedPost || postsByLon.length === 0) return;
+    const idx = postsByLon.findIndex(p => p.id === selectedPost.id);
+    if (idx === -1) return;
+    const prevIdx = (idx - 1 + postsByLon.length) % postsByLon.length;
+    const prev = postsByLon[prevIdx];
+    setSelectedPost(prev);
+    setSpinToLon(prev.lon);
+  }, [selectedPost, postsByLon]);
 
   const handleOpenAuth = (tab: "login" | "register") => {
     setAuthTab(tab);
@@ -62,7 +88,10 @@ const Index = () => {
     <div className="w-full h-screen overflow-hidden">
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-9 py-3 sm:py-5 z-50 pointer-events-none">
-        <span className="text-lg sm:text-xl font-light tracking-[0.28em] uppercase">RADIAN</span>
+        <div className="flex flex-col">
+          <span className="text-lg sm:text-xl font-light tracking-[0.28em] uppercase">THE RADIAN</span>
+          <span className="font-mono text-[0.42rem] tracking-[0.14em] uppercase text-muted-foreground mt-0.5">ver. 0.1</span>
+        </div>
         <div className="flex gap-2 sm:gap-3 pointer-events-auto">
           {user ? (
             <>
@@ -106,13 +135,15 @@ const Index = () => {
         onPostClick={handlePostClick}
         paused={!!selectedPost}
         onNeedMore={loadMore}
+        selectedPostId={selectedPost?.id}
+        spinToLon={spinToLon}
       />
 
       {/* Hint */}
       <div
         className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 font-mono text-[0.5rem] sm:text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground z-50 pointer-events-none whitespace-nowrap"
       >
-        Drag to explore · Click a dot to see log
+        Drag to explore · Click a log to view
       </div>
 
       {/* Live count */}
@@ -141,7 +172,12 @@ const Index = () => {
       </div>
 
       {/* Post panel (right side) */}
-      <PostPanel post={selectedPost} onClose={() => setSelectedPost(null)} />
+      <PostPanel
+        post={selectedPost}
+        onClose={() => { setSelectedPost(null); setSpinToLon(null); }}
+        onNext={handleNextPost}
+        onPrev={handlePrevPost}
+      />
 
       {/* Auth modal */}
       <AuthModal

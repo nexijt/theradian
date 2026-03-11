@@ -8,7 +8,7 @@ const LINE_MAX = 80;
 const EASE = 0.065;
 const LAG_SPEED = 0.045;
 const OVERLAP_THRESH = 55;
-const WINDOW_SIZE = 10; // Max posts visible at once
+const WINDOW_SIZE = 10;
 
 function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
   const latR = lat * (Math.PI / 180);
@@ -37,7 +37,7 @@ interface PostObject {
   lineLengthMult: number;
   isHidden: boolean;
   facing: number;
-  dateIndex: number; // index in date-sorted array
+  dateIndex: number;
 }
 
 interface GlobeProps {
@@ -45,9 +45,11 @@ interface GlobeProps {
   onPostClick: (post: FeedPost) => void;
   paused?: boolean;
   onNeedMore?: () => void;
+  selectedPostId?: string | null;
+  spinToLon?: number | null;
 }
 
-export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeProps) {
+export default function Globe({ posts, onPostClick, paused, onNeedMore, selectedPostId, spinToLon }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
@@ -56,6 +58,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
     spinGroup: THREE.Group;
+    tiltGroup: THREE.Group;
     postObjects: PostObject[];
   } | null>(null);
   const dragRef = useRef({
@@ -65,14 +68,14 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     autoRotate: true,
     arTimer: null as ReturnType<typeof setTimeout> | null,
     prevX: 0,
-    lastRotY: 0, // track rotation for window cursor
+    prevY: 0,
+    lastRotY: 0,
+    dragAxis: null as "h" | "v" | null,
+    vertVel: 0,
   });
-  // Window cursor: which date-index is the "center" of the visible window
-  // Posts are sorted newest first (index 0 = newest). 
-  // Clockwise drag (positive rotVel) = move cursor forward (older posts)
-  // Counter-clockwise = move cursor backward (newer posts)
   const windowCursorRef = useRef(0);
-  const rotAccumRef = useRef(0); // accumulated rotation since last cursor shift
+  const rotAccumRef = useRef(0);
+  const spinToLonRef = useRef<number | null>(null);
 
   const postsRef = useRef(posts);
   postsRef.current = posts;
@@ -82,11 +85,19 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
   pausedRef.current = paused;
   const onNeedMoreRef = useRef(onNeedMore);
   onNeedMoreRef.current = onNeedMore;
+  const selectedPostIdRef = useRef(selectedPostId);
+  selectedPostIdRef.current = selectedPostId;
+
+  // Handle spinToLon changes
+  useEffect(() => {
+    if (spinToLon !== null && spinToLon !== undefined) {
+      spinToLonRef.current = spinToLon;
+    }
+  }, [spinToLon]);
 
   const W = useCallback(() => window.innerWidth, []);
   const H = useCallback(() => window.innerHeight, []);
 
-  // Initialize Three.js scene
   useEffect(() => {
     const canvas = canvasRef.current!;
     const overlayCanvas = overlayRef.current!;
@@ -124,11 +135,11 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
 
     const tiltGroup = new THREE.Group();
     tiltGroup.add(spinGroup);
-    tiltGroup.rotation.x = 0.35; // Tilt to show Northern hemisphere more clearly
+    tiltGroup.rotation.x = 0.35;
     tiltGroup.scale.setScalar(0.9);
     scene.add(tiltGroup);
 
-    sceneRef.current = { renderer, scene, camera, spinGroup, postObjects: [] };
+    sceneRef.current = { renderer, scene, camera, spinGroup, tiltGroup, postObjects: [] };
 
     function resize() {
       renderer.setSize(W(), H());
@@ -141,43 +152,80 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     resize();
 
     const drag = dragRef.current;
+    const AXIS_THRESHOLD = 5;
 
     function onMouseDown(e: MouseEvent) {
       drag.isDragging = true;
       drag.dragMoved = false;
+      drag.dragAxis = null;
       drag.prevX = e.clientX;
+      drag.prevY = e.clientY;
       if (drag.arTimer) clearTimeout(drag.arTimer);
       drag.autoRotate = false;
     }
     function onMouseMove(e: MouseEvent) {
       if (!drag.isDragging) return;
       const dx = e.clientX - drag.prevX;
-      if (Math.abs(dx) > 2) drag.dragMoved = true;
-      drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
-      spinGroup.rotation.y += drag.rotVel;
+      const dy = e.clientY - drag.prevY;
+
+      if (!drag.dragAxis) {
+        if (Math.abs(dx) > AXIS_THRESHOLD) drag.dragAxis = "h";
+        else if (Math.abs(dy) > AXIS_THRESHOLD) drag.dragAxis = "v";
+        else return;
+        drag.dragMoved = true;
+      }
+
+      if (drag.dragAxis === "h") {
+        drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
+        spinGroup.rotation.y += drag.rotVel;
+      } else {
+        const newTilt = tiltGroup.rotation.x - dy * 0.005;
+        tiltGroup.rotation.x = Math.max(-0.35, Math.min(0.35, newTilt));
+        drag.vertVel = -dy * 0.005;
+      }
       drag.prevX = e.clientX;
+      drag.prevY = e.clientY;
     }
     function onMouseUp() {
       if (!drag.isDragging) return;
       drag.isDragging = false;
+      drag.dragAxis = null;
       drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
     }
     function onTouchStart(e: TouchEvent) {
       drag.isDragging = true;
       drag.dragMoved = false;
+      drag.dragAxis = null;
       drag.prevX = e.touches[0].clientX;
+      drag.prevY = e.touches[0].clientY;
       if (drag.arTimer) clearTimeout(drag.arTimer);
       drag.autoRotate = false;
     }
     function onTouchMove(e: TouchEvent) {
       const dx = e.touches[0].clientX - drag.prevX;
-      if (Math.abs(dx) > 2) drag.dragMoved = true;
-      drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
-      spinGroup.rotation.y += drag.rotVel;
+      const dy = e.touches[0].clientY - drag.prevY;
+
+      if (!drag.dragAxis) {
+        if (Math.abs(dx) > AXIS_THRESHOLD) drag.dragAxis = "h";
+        else if (Math.abs(dy) > AXIS_THRESHOLD) drag.dragAxis = "v";
+        else return;
+        drag.dragMoved = true;
+      }
+
+      if (drag.dragAxis === "h") {
+        drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
+        spinGroup.rotation.y += drag.rotVel;
+      } else {
+        const newTilt = tiltGroup.rotation.x - dy * 0.005;
+        tiltGroup.rotation.x = Math.max(-0.35, Math.min(0.35, newTilt));
+        drag.vertVel = -dy * 0.005;
+      }
       drag.prevX = e.touches[0].clientX;
+      drag.prevY = e.touches[0].clientY;
     }
     function onTouchEnd() {
       drag.isDragging = false;
+      drag.dragAxis = null;
       drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
     }
 
@@ -200,10 +248,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     const _wPos = new THREE.Vector3();
     const _nrm = new THREE.Vector3();
     const _mat3 = new THREE.Matrix3();
-    const _toCam = new THREE.Vector3(); // reusable — no per-frame allocs
+    const _toCam = new THREE.Vector3();
 
-    // Rotation threshold to shift window by 1 post
-    const ROT_PER_SHIFT = 0.5; // radians (~29 degrees per post shift)
+    const ROT_PER_SHIFT = 0.5;
 
     function drawOverlay() {
       const s = sceneRef.current;
@@ -214,12 +261,10 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
       const totalPosts = s.postObjects.length;
       if (totalPosts === 0) return;
 
-      // Only shift window cursor from user drag, NOT auto-rotate
       const currentRotY = spinGroup.rotation.y;
       const rotDelta = currentRotY - drag.lastRotY;
       drag.lastRotY = currentRotY;
 
-      // Only accumulate rotation when user is dragging or momentum is significant
       if (drag.isDragging || Math.abs(drag.rotVel) > 0.003) {
         rotAccumRef.current += rotDelta;
       }
@@ -239,20 +284,20 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
         }
       }
 
-      // Determine visible window (wrapping)
       const visibleIndices = new Set<number>();
       for (let i = 0; i < Math.min(WINDOW_SIZE, totalPosts); i++) {
         visibleIndices.add((windowCursorRef.current + i) % totalPosts);
       }
 
-      // Update isHidden based on window
+      // Also keep selected post visible
+      const selId = selectedPostIdRef.current;
+
       s.postObjects.forEach((p) => {
-        p.isHidden = !visibleIndices.has(p.dateIndex);
+        const isSelected = selId === p.data.id;
+        p.isHidden = !visibleIndices.has(p.dateIndex) && !isSelected;
       });
 
-      // Render pass — reuse vectors instead of cloning
       s.postObjects.forEach((p) => {
-        // Skip early if hidden and already faded out
         if (p.isHidden && p.progress <= 0) {
           p.el.style.display = "none";
           return;
@@ -265,8 +310,6 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
         const facing = _toCam.dot(_nrm);
         p.facing = facing;
 
-        // Show posts that are on the front hemisphere (facing > -0.1)
-        // Full visibility when facing > 0.1
         let targetVis: number;
         if (p.isHidden) {
           targetVis = 0;
@@ -322,12 +365,17 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
         const midX = sp.x + (ex - sp.x) * eased;
         const midY = sp.y + (ey - sp.y) * eased;
 
+        // Determine if this post is selected
+        const isSelected = selId === p.data.id;
+
         if (eased > 0.01) {
           ctx2d.beginPath();
           ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
           ctx2d.lineTo(Math.round(midX), Math.round(midY));
-          ctx2d.strokeStyle = `rgba(26,74,255,${0.5 * eased})`;
-          ctx2d.lineWidth = 1.3;
+          ctx2d.strokeStyle = isSelected
+            ? `rgba(26,74,255,${0.9 * eased})`
+            : `rgba(26,74,255,${0.5 * eased})`;
+          ctx2d.lineWidth = isSelected ? 2 : 1.3;
           ctx2d.stroke();
         }
 
@@ -339,12 +387,18 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
           p.el.style.top = midY + "px";
           p.el.style.opacity = String(dotAlpha);
           p.el.style.pointerEvents = dotAlpha > 0.4 ? "all" : "none";
+
+          // Highlight selected post
+          if (isSelected) {
+            p.el.classList.add("post-dot-selected");
+          } else {
+            p.el.classList.remove("post-dot-selected");
+          }
         } else {
           p.el.style.display = "none";
         }
       });
 
-      // Overlap avoidance — only check visible posts
       const visible = s.postObjects.filter(p => p.progress > 0 && p.lagX !== null);
       for (let i = 0; i < visible.length; i++) {
         const a = visible[i];
@@ -372,7 +426,29 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     let animId: number;
     function animate() {
       animId = requestAnimationFrame(animate);
-      if (!pausedRef.current && drag.autoRotate && !drag.isDragging) {
+
+      // Handle spinToLon — smoothly rotate to target longitude
+      if (spinToLonRef.current !== null) {
+        // Convert target longitude to rotation.y
+        // In our projection: theta = (lon + 180) * PI/180, and x = -cos(lat)*cos(theta)
+        // To face a longitude, we need rotation.y such that it centers that lon
+        const targetRotY = -(spinToLonRef.current + 180) * (Math.PI / 180);
+        // Normalize both to [-PI, PI]
+        let diff = targetRotY - spinGroup.rotation.y;
+        // Normalize diff to [-PI, PI]
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+
+        if (Math.abs(diff) < 0.005) {
+          spinGroup.rotation.y += diff;
+          spinToLonRef.current = null;
+        } else {
+          spinGroup.rotation.y += diff * 0.05;
+        }
+        drag.autoRotate = false;
+        if (drag.arTimer) clearTimeout(drag.arTimer);
+        drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
+      } else if (!pausedRef.current && drag.autoRotate && !drag.isDragging) {
         spinGroup.rotation.y -= 0.0009;
       } else if (!pausedRef.current && !drag.isDragging) {
         drag.rotVel *= 0.92;
@@ -382,8 +458,6 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
       drawOverlay();
     }
     animate();
-
-    // No canvas click handler needed — all posts use HTML elements with click handlers
 
     return () => {
       cancelAnimationFrame(animId);
@@ -404,7 +478,6 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
     const dotsContainer = dotsRef.current;
     if (!s || !dotsContainer) return;
 
-    // Remove old post objects
     s.postObjects.forEach((p) => {
       p.el.style.display = "none";
       s.spinGroup.remove(p.dot);
@@ -416,8 +489,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
       ctx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
 
-    // Sort posts by date: newest first (index 0 = most recent)
-    const sorted = [...posts].sort((a, b) => 
+    const sorted = [...posts].sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
@@ -472,7 +544,6 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
       };
     });
 
-    // Reset window cursor to 0 (newest posts) when posts change
     windowCursorRef.current = 0;
     rotAccumRef.current = 0;
   }, [posts]);

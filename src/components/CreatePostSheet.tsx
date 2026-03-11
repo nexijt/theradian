@@ -159,9 +159,9 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         ✕
       </button>
 
-      <h2 className="text-2xl font-light italic mb-1">Today's Arc</h2>
+      <h2 className="text-2xl font-light italic mb-1">Today's Log</h2>
       <p className="font-mono text-[0.58rem] tracking-[0.14em] uppercase text-muted-foreground mb-6">
-        One post · Once a day · Placed on the globe
+        One post · Once a day · On the globe
       </p>
 
       {/* Type toggle */}
@@ -255,7 +255,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         <textarea
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
-          placeholder="Notes on this arc…"
+          placeholder="Notes on this log…"
           className="w-full bg-foreground/[0.04] border rounded-sm px-3.5 py-2.5 font-serif text-base text-foreground outline-none transition-colors focus:border-primary resize-none h-20 leading-relaxed"
           style={{ borderColor: "hsl(0 0% 10% / 0.12)" }}
         />
