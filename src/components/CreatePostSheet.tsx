@@ -267,7 +267,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
           disabled={loading}
           className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm bg-primary text-primary-foreground transition-all hover:bg-primary-light disabled:opacity-50"
         >
-          {loading ? "Posting..." : "Post to globe"}
+          {loading ? "Posting..." : "Log to globe"}
         </button>
       </div>
     </div>
