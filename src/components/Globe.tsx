@@ -124,7 +124,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore }: GlobeP
 
     const tiltGroup = new THREE.Group();
     tiltGroup.add(spinGroup);
-    tiltGroup.rotation.x = -0.35; // Tilt to show Northern hemisphere more clearly
+    tiltGroup.rotation.x = 0.35; // Tilt to show Northern hemisphere more clearly
     tiltGroup.scale.setScalar(0.9);
     scene.add(tiltGroup);
 
