@@ -93,15 +93,21 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
 
       let lat: number | undefined;
       let lon: number | undefined;
+      let city: string | undefined;
+      let country: string | undefined;
 
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 30000 });
         });
         lat = pos.coords.latitude;
         lon = pos.coords.longitude;
       } catch {
-        // Geolocation failed — post without coords
+        // Geolocation denied or failed — random point in Pacific Ocean
+        lat = -10 + Math.random() * 20;   // roughly -10 to 10
+        lon = -170 + Math.random() * 40;  // roughly -170 to -130
+        city = "Somewhere on Earth";
+        country = "Somewhere on Earth";
       }
 
       await createPost({
