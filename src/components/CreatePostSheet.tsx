@@ -117,6 +117,8 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         caption,
         latitude: lat,
         longitude: lon,
+        city,
+        country,
         tag: postType === "audio" ? audioTag : photoTag,
       });
 
