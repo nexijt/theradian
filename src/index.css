@@ -126,9 +126,13 @@ body::before {
   backdrop-filter: blur(6px);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.post-dot.type-photo:hover {
+.post-dot.type-photo:hover,
+.post-dot.type-photo.post-dot-selected {
   border-color: hsl(var(--primary));
   box-shadow: 0 2px 12px hsl(var(--primary) / 0.12);
+}
+.post-dot.type-photo.post-dot-selected {
+  box-shadow: 0 2px 16px hsl(var(--primary) / 0.3);
 }
 
 .post-dot.type-audio {
