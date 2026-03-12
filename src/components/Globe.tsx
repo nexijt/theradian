@@ -218,13 +218,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       drag.autoRotate = false;
     }
     function onTouchMove(e: TouchEvent) {
-      if (e.touches.length === 2 && drag.isPinching) {
-        const newDist = getPinchDist(e);
-        const delta = (newDist - drag.pinchDist) * 0.003;
-        drag.pinchDist = newDist;
-        // Scale between 0.55 (zoomed out, globe fully visible) and 0.9 (default)
-        const newScale = Math.max(0.55, Math.min(0.9, tiltGroup.scale.x + delta));
-        tiltGroup.scale.setScalar(newScale);
+      if (e.touches.length === 2) {
         return;
       }
 
