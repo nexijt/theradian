@@ -141,7 +141,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
     const tiltGroup = new THREE.Group();
     tiltGroup.add(spinGroup);
     tiltGroup.rotation.x = 0.35;
-    tiltGroup.scale.setScalar(0.9);
+    tiltGroup.scale.setScalar(0.55);
     scene.add(tiltGroup);
 
     sceneRef.current = { renderer, scene, camera, spinGroup, tiltGroup, postObjects: [] };
@@ -206,9 +206,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     function onTouchStart(e: TouchEvent) {
       if (e.touches.length === 2) {
-        drag.isPinching = true;
-        drag.isDragging = false;
-        drag.pinchDist = getPinchDist(e);
+        // Pinch zoom disabled on mobile
         return;
       }
       drag.isDragging = true;
@@ -220,13 +218,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       drag.autoRotate = false;
     }
     function onTouchMove(e: TouchEvent) {
-      if (e.touches.length === 2 && drag.isPinching) {
-        const newDist = getPinchDist(e);
-        const delta = (newDist - drag.pinchDist) * 0.003;
-        drag.pinchDist = newDist;
-        // Scale between 0.55 (zoomed out, globe fully visible) and 0.9 (default)
-        const newScale = Math.max(0.55, Math.min(0.9, tiltGroup.scale.x + delta));
-        tiltGroup.scale.setScalar(newScale);
+      if (e.touches.length === 2) {
         return;
       }
 
@@ -468,7 +460,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         // Convert target longitude to rotation.y
         // In our projection: theta = (lon + 180) * PI/180, and x = -cos(lat)*cos(theta)
         // To face a longitude, we need rotation.y such that it centers that lon
-        const targetRotY = -(spinToLonRef.current + 180) * (Math.PI / 180);
+        const targetRotY = -spinToLonRef.current * (Math.PI / 180);
         // Normalize both to [-PI, PI]
         let diff = targetRotY - spinGroup.rotation.y;
         // Normalize diff to [-PI, PI]
