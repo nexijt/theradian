@@ -3,9 +3,25 @@ import { createPost, hasPostedToday, compressImage } from "@/lib/posts";
 import { trimAudioToSeconds } from "@/lib/audio-utils";
 import { useToast } from "@/hooks/use-toast";
 import ImageCropper from "./ImageCropper";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 const AUDIO_TAGS = ["MUSIC", "VOICE", "WRITING", "SFX"] as const;
 const PHOTO_TAGS = ["PHOTO", "DESIGN", "WRITING", "MATTER"] as const;
+
+const TAG_DESCRIPTIONS: Record<string, Record<string, string>> = {
+  photo: {
+    PHOTO: "photography. analogue or digital",
+    DESIGN: "digital edit.",
+    WRITING: "written by you.",
+    MATTER: "physical. analogue. crafted.",
+  },
+  audio: {
+    MUSIC: "music you made.",
+    VOICE: "singing. va.",
+    WRITING: "written by you.",
+    SFX: "you. nature. digital.",
+  },
+};
 
 interface CreatePostSheetProps {
   open: boolean;
@@ -229,21 +245,30 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
           Tag
         </label>
         <div className="flex gap-1.5 flex-wrap">
-          {(postType === "audio" ? AUDIO_TAGS : PHOTO_TAGS).map((tag) => {
-            const selected = postType === "audio" ? audioTag === tag : photoTag === tag;
-            return (
-              <button
-                key={tag}
-                className={`font-mono text-[0.52rem] tracking-[0.1em] uppercase px-3 py-1.5 rounded-sm border transition-all ${
-                  selected ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
-                }`}
-                style={!selected ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
-                onClick={() => postType === "audio" ? setAudioTag(tag) : setPhotoTag(tag)}
-              >
-                [{tag}]
-              </button>
-            );
-          })}
+          <TooltipProvider delayDuration={300}>
+            {(postType === "audio" ? AUDIO_TAGS : PHOTO_TAGS).map((tag) => {
+              const selected = postType === "audio" ? audioTag === tag : photoTag === tag;
+              const desc = TAG_DESCRIPTIONS[postType]?.[tag] || tag;
+              return (
+                <Tooltip key={tag}>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={`font-mono text-[0.52rem] tracking-[0.1em] uppercase px-3 py-1.5 rounded-sm border transition-all ${
+                        selected ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
+                      }`}
+                      style={!selected ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
+                      onClick={() => postType === "audio" ? setAudioTag(tag) : setPhotoTag(tag)}
+                    >
+                      [{tag}]
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="font-mono text-[0.5rem] tracking-[0.08em] uppercase">
+                    {desc}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </TooltipProvider>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Globe from "@/components/Globe";
 import AuthModal from "@/components/AuthModal";
 import PostPanel from "@/components/PostPanel";
@@ -19,6 +19,7 @@ const Index = () => {
   const [activeCount, setActiveCount] = useState(Math.floor(Math.random() * 11) + 15);
   const [spinToLon, setSpinToLon] = useState<number | null>(null);
   const { toast } = useToast();
+  const visiblePostsRef = useRef<FeedPost[]>([]);
 
   useEffect(() => {
     loadInitial();
@@ -36,10 +37,9 @@ const Index = () => {
     return () => clearInterval(iv);
   }, []);
 
-  // Sort posts by longitude for next/prev navigation
-  const postsByLon = useMemo(() => {
-    return [...currentPosts].sort((a, b) => a.lon - b.lon);
-  }, [currentPosts]);
+  const handleVisiblePostsChange = useCallback((vp: FeedPost[]) => {
+    visiblePostsRef.current = vp;
+  }, []);
 
   const handlePostClick = useCallback((post: FeedPost) => {
     setSelectedPost(post);
@@ -47,24 +47,33 @@ const Index = () => {
   }, []);
 
   const handleNextPost = useCallback(() => {
-    if (!selectedPost || postsByLon.length === 0) return;
-    const idx = postsByLon.findIndex(p => p.id === selectedPost.id);
-    if (idx === -1) return;
-    const nextIdx = (idx + 1) % postsByLon.length;
-    const next = postsByLon[nextIdx];
+    if (!selectedPost) return;
+    // Sort visible posts by longitude, find next higher lon
+    const sorted = [...visiblePostsRef.current].sort((a, b) => a.lon - b.lon);
+    if (sorted.length === 0) return;
+    const currentLon = selectedPost.lon;
+    // Find first post with higher longitude
+    let next = sorted.find(p => p.lon > currentLon && p.id !== selectedPost.id);
+    // Wrap around
+    if (!next) next = sorted.find(p => p.id !== selectedPost.id);
+    if (!next) return;
     setSelectedPost(next);
     setSpinToLon(next.lon);
-  }, [selectedPost, postsByLon]);
+  }, [selectedPost]);
 
   const handlePrevPost = useCallback(() => {
-    if (!selectedPost || postsByLon.length === 0) return;
-    const idx = postsByLon.findIndex(p => p.id === selectedPost.id);
-    if (idx === -1) return;
-    const prevIdx = (idx - 1 + postsByLon.length) % postsByLon.length;
-    const prev = postsByLon[prevIdx];
+    if (!selectedPost) return;
+    const sorted = [...visiblePostsRef.current].sort((a, b) => a.lon - b.lon);
+    if (sorted.length === 0) return;
+    const currentLon = selectedPost.lon;
+    // Find last post with lower longitude
+    const reversed = [...sorted].reverse();
+    let prev = reversed.find(p => p.lon < currentLon && p.id !== selectedPost.id);
+    if (!prev) prev = reversed.find(p => p.id !== selectedPost.id);
+    if (!prev) return;
     setSelectedPost(prev);
     setSpinToLon(prev.lon);
-  }, [selectedPost, postsByLon]);
+  }, [selectedPost]);
 
   const handleOpenAuth = (tab: "login" | "register") => {
     setAuthTab(tab);
@@ -90,7 +99,7 @@ const Index = () => {
       <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-9 py-3 sm:py-5 z-50 pointer-events-none">
         <div className="flex flex-col">
           <span className="text-lg sm:text-xl font-light tracking-[0.28em] uppercase">THE RADIAN</span>
-          <span className="font-mono text-[0.42rem] tracking-[0.14em] uppercase text-muted-foreground mt-0.5">ver. 0.1</span>
+          <span className="font-mono text-[0.42rem] tracking-[0.14em] uppercase text-muted-foreground" style={{ marginTop: "-1px", paddingLeft: "2px" }}>ver. 0.1</span>
         </div>
         <div className="flex gap-2 sm:gap-3 pointer-events-auto">
           {user ? (
@@ -137,6 +146,7 @@ const Index = () => {
         onNeedMore={loadMore}
         selectedPostId={selectedPost?.id}
         spinToLon={spinToLon}
+        onVisiblePostsChange={handleVisiblePostsChange}
       />
 
       {/* Hint */}
