@@ -146,6 +146,7 @@ const Index = () => {
         onNeedMore={loadMore}
         selectedPostId={selectedPost?.id}
         spinToLon={spinToLon}
+        onVisiblePostsChange={handleVisiblePostsChange}
       />
 
       {/* Hint */}
