@@ -216,9 +216,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
         spinGroup.rotation.y += drag.rotVel;
       } else {
-        const newTilt = tiltGroup.rotation.x - dy * 0.005;
+        const newTilt = tiltGroup.rotation.x + dy * 0.005;
         tiltGroup.rotation.x = Math.max(-0.35, Math.min(0.35, newTilt));
-        drag.vertVel = -dy * 0.005;
+        drag.vertVel = dy * 0.005;
       }
       drag.prevX = e.touches[0].clientX;
       drag.prevY = e.touches[0].clientY;
