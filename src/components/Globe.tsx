@@ -141,7 +141,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
     const tiltGroup = new THREE.Group();
     tiltGroup.add(spinGroup);
     tiltGroup.rotation.x = 0.35;
-    tiltGroup.scale.setScalar(0.9);
+    tiltGroup.scale.setScalar(0.55);
     scene.add(tiltGroup);
 
     sceneRef.current = { renderer, scene, camera, spinGroup, tiltGroup, postObjects: [] };
