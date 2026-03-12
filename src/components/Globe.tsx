@@ -206,9 +206,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     function onTouchStart(e: TouchEvent) {
       if (e.touches.length === 2) {
-        drag.isPinching = true;
-        drag.isDragging = false;
-        drag.pinchDist = getPinchDist(e);
+        // Pinch zoom disabled on mobile
         return;
       }
       drag.isDragging = true;
