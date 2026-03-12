@@ -197,7 +197,20 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       drag.dragAxis = null;
       drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
     }
+    function getPinchDist(e: TouchEvent) {
+      const t = e.touches;
+      const dx = t[0].clientX - t[1].clientX;
+      const dy = t[0].clientY - t[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
     function onTouchStart(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        drag.isPinching = true;
+        drag.isDragging = false;
+        drag.pinchDist = getPinchDist(e);
+        return;
+      }
       drag.isDragging = true;
       drag.dragMoved = false;
       drag.dragAxis = null;
@@ -207,6 +220,17 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       drag.autoRotate = false;
     }
     function onTouchMove(e: TouchEvent) {
+      if (e.touches.length === 2 && drag.isPinching) {
+        const newDist = getPinchDist(e);
+        const delta = (newDist - drag.pinchDist) * 0.003;
+        drag.pinchDist = newDist;
+        // Scale between 0.55 (zoomed out, globe fully visible) and 0.9 (default)
+        const newScale = Math.max(0.55, Math.min(0.9, tiltGroup.scale.x + delta));
+        tiltGroup.scale.setScalar(newScale);
+        return;
+      }
+
+      if (!drag.isDragging) return;
       const dx = e.touches[0].clientX - drag.prevX;
       const dy = e.touches[0].clientY - drag.prevY;
 
@@ -229,6 +253,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       drag.prevY = e.touches[0].clientY;
     }
     function onTouchEnd() {
+      drag.isPinching = false;
       drag.isDragging = false;
       drag.dragAxis = null;
       drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
