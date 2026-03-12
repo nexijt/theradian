@@ -73,10 +73,14 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
     lastRotY: 0,
     dragAxis: null as "h" | "v" | null,
     vertVel: 0,
+    pinchDist: 0,
+    isPinching: false,
   });
   const windowCursorRef = useRef(0);
   const rotAccumRef = useRef(0);
   const spinToLonRef = useRef<number | null>(null);
+  const onVisiblePostsChangeRef = useRef(onVisiblePostsChange);
+  onVisiblePostsChangeRef.current = onVisiblePostsChange;
 
   const postsRef = useRef(posts);
   postsRef.current = posts;
