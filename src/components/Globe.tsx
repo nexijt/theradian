@@ -327,6 +327,12 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         p.isHidden = !visibleIndices.has(p.dateIndex) && !isSelected;
       });
 
+      // Report visible (non-hidden, front-facing) posts to parent
+      const visiblePosts = s.postObjects
+        .filter(p => !p.isHidden && p.facing > -0.1)
+        .map(p => p.data);
+      onVisiblePostsChangeRef.current?.(visiblePosts);
+
       s.postObjects.forEach((p) => {
         if (p.isHidden && p.progress <= 0) {
           p.el.style.display = "none";

@@ -90,7 +90,7 @@ const Index = () => {
       <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-9 py-3 sm:py-5 z-50 pointer-events-none">
         <div className="flex flex-col">
           <span className="text-lg sm:text-xl font-light tracking-[0.28em] uppercase">THE RADIAN</span>
-          <span className="font-mono text-[0.42rem] tracking-[0.14em] uppercase text-muted-foreground mt-0.5">ver. 0.1</span>
+          <span className="font-mono text-[0.42rem] tracking-[0.14em] uppercase text-muted-foreground" style={{ marginTop: "-1px", paddingLeft: "2px" }}>ver. 0.1</span>
         </div>
         <div className="flex gap-2 sm:gap-3 pointer-events-auto">
           {user ? (
