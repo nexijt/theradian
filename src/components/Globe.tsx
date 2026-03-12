@@ -47,9 +47,10 @@ interface GlobeProps {
   onNeedMore?: () => void;
   selectedPostId?: string | null;
   spinToLon?: number | null;
+  onVisiblePostsChange?: (visiblePosts: FeedPost[]) => void;
 }
 
-export default function Globe({ posts, onPostClick, paused, onNeedMore, selectedPostId, spinToLon }: GlobeProps) {
+export default function Globe({ posts, onPostClick, paused, onNeedMore, selectedPostId, spinToLon, onVisiblePostsChange }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
