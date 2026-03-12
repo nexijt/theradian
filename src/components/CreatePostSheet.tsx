@@ -245,21 +245,30 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
           Tag
         </label>
         <div className="flex gap-1.5 flex-wrap">
-          {(postType === "audio" ? AUDIO_TAGS : PHOTO_TAGS).map((tag) => {
-            const selected = postType === "audio" ? audioTag === tag : photoTag === tag;
-            return (
-              <button
-                key={tag}
-                className={`font-mono text-[0.52rem] tracking-[0.1em] uppercase px-3 py-1.5 rounded-sm border transition-all ${
-                  selected ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
-                }`}
-                style={!selected ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
-                onClick={() => postType === "audio" ? setAudioTag(tag) : setPhotoTag(tag)}
-              >
-                [{tag}]
-              </button>
-            );
-          })}
+          <TooltipProvider delayDuration={300}>
+            {(postType === "audio" ? AUDIO_TAGS : PHOTO_TAGS).map((tag) => {
+              const selected = postType === "audio" ? audioTag === tag : photoTag === tag;
+              const desc = TAG_DESCRIPTIONS[postType]?.[tag] || tag;
+              return (
+                <Tooltip key={tag}>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={`font-mono text-[0.52rem] tracking-[0.1em] uppercase px-3 py-1.5 rounded-sm border transition-all ${
+                        selected ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
+                      }`}
+                      style={!selected ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
+                      onClick={() => postType === "audio" ? setAudioTag(tag) : setPhotoTag(tag)}
+                    >
+                      [{tag}]
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="font-mono text-[0.5rem] tracking-[0.08em] uppercase">
+                    {desc}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </TooltipProvider>
         </div>
       </div>
 
