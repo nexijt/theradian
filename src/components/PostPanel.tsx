@@ -99,7 +99,7 @@ export default function PostPanel({ post, onClose, onNext, onPrev }: PostPanelPr
               onClick={(e) => { e.stopPropagation(); onNext(); }}
               className="absolute -right-6 top-1/2 -translate-y-1/2 w-8 h-12 flex items-center justify-center bg-transparent border-none cursor-pointer opacity-0 hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary z-10"
             >
-              <span className="text-base font-light select-none">›</span>
+              <span className="text-xl font-semibold select-none">›</span>
             </button>
           )}
         </div>
