@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback } from "react";
 import * as THREE from "three";
 import { CONTINENT_OUTLINES } from "@/lib/globe-data";
 import type { FeedPost } from "@/hooks/useFeed";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const RADIUS = 1.0;
 const LINE_MAX = 80;
@@ -9,6 +10,8 @@ const EASE = 0.065;
 const LAG_SPEED = 0.045;
 const OVERLAP_THRESH = 55;
 const WINDOW_SIZE = 10;
+const MOBILE_SCALE = 0.55;
+const DESKTOP_SCALE = 0.9;
 
 function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
   const latR = lat * (Math.PI / 180);
