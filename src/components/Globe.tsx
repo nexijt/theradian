@@ -470,7 +470,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         // Convert target longitude to rotation.y
         // In our projection: theta = (lon + 180) * PI/180, and x = -cos(lat)*cos(theta)
         // To face a longitude, we need rotation.y such that it centers that lon
-        const targetRotY = -spinToLonRef.current * (Math.PI / 180);
+        const targetRotY = spinToLonRef.current * (Math.PI / 180);
         // Normalize both to [-PI, PI]
         let diff = targetRotY - spinGroup.rotation.y;
         // Normalize diff to [-PI, PI]
