@@ -104,6 +104,12 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
     }
   }, [spinToLon]);
 
+  useEffect(() => {
+    const s = sceneRef.current;
+    if (!s) return;
+    s.tiltGroup.scale.setScalar(isMobile ? MOBILE_SCALE : DESKTOP_SCALE);
+  }, [isMobile]);
+
   const W = useCallback(() => window.innerWidth, []);
   const H = useCallback(() => window.innerHeight, []);
 
