@@ -84,6 +84,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
   const spinToLonRef = useRef<number | null>(null);
   const onVisiblePostsChangeRef = useRef(onVisiblePostsChange);
   onVisiblePostsChangeRef.current = onVisiblePostsChange;
+  const isMobile = useIsMobile();
 
   const postsRef = useRef(posts);
   postsRef.current = posts;
