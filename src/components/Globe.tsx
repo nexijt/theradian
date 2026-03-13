@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback } from "react";
 import * as THREE from "three";
 import { CONTINENT_OUTLINES } from "@/lib/globe-data";
 import type { FeedPost } from "@/hooks/useFeed";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const RADIUS = 1.0;
 const LINE_MAX = 80;
@@ -9,6 +10,8 @@ const EASE = 0.065;
 const LAG_SPEED = 0.045;
 const OVERLAP_THRESH = 55;
 const WINDOW_SIZE = 10;
+const MOBILE_SCALE = 0.55;
+const DESKTOP_SCALE = 0.9;
 
 function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
   const latR = lat * (Math.PI / 180);
@@ -81,6 +84,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
   const spinToLonRef = useRef<number | null>(null);
   const onVisiblePostsChangeRef = useRef(onVisiblePostsChange);
   onVisiblePostsChangeRef.current = onVisiblePostsChange;
+  const isMobile = useIsMobile();
 
   const postsRef = useRef(posts);
   postsRef.current = posts;
@@ -99,6 +103,12 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       spinToLonRef.current = spinToLon;
     }
   }, [spinToLon]);
+
+  useEffect(() => {
+    const s = sceneRef.current;
+    if (!s) return;
+    s.tiltGroup.scale.setScalar(isMobile ? MOBILE_SCALE : DESKTOP_SCALE);
+  }, [isMobile]);
 
   const W = useCallback(() => window.innerWidth, []);
   const H = useCallback(() => window.innerHeight, []);
@@ -141,7 +151,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
     const tiltGroup = new THREE.Group();
     tiltGroup.add(spinGroup);
     tiltGroup.rotation.x = 0.35;
-    tiltGroup.scale.setScalar(0.55);
+    tiltGroup.scale.setScalar(window.innerWidth < 768 ? MOBILE_SCALE : DESKTOP_SCALE);
     scene.add(tiltGroup);
 
     sceneRef.current = { renderer, scene, camera, spinGroup, tiltGroup, postObjects: [] };
@@ -460,7 +470,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         // Convert target longitude to rotation.y
         // In our projection: theta = (lon + 180) * PI/180, and x = -cos(lat)*cos(theta)
         // To face a longitude, we need rotation.y such that it centers that lon
-        const targetRotY = -spinToLonRef.current * (Math.PI / 180);
+        const targetRotY = spinToLonRef.current * (Math.PI / 180);
         // Normalize both to [-PI, PI]
         let diff = targetRotY - spinGroup.rotation.y;
         // Normalize diff to [-PI, PI]
