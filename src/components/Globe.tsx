@@ -573,6 +573,11 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         onPostClickRef.current(post);
       });
 
+      el.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        spinToLonRef.current = post.lon;
+      });
+
       dotsContainer.appendChild(el);
 
       return {
