@@ -27,6 +27,19 @@ function easeInOut(t: number) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
+function normalizeAngle(angle: number) {
+  let normalized = angle;
+  while (normalized > Math.PI) normalized -= Math.PI * 2;
+  while (normalized < -Math.PI) normalized += Math.PI * 2;
+  return normalized;
+}
+
+function getRotationForCenteredLongitude(lon: number) {
+  // With this globe projection, front-center longitude is: lon = -90° - rotationY(deg)
+  // => rotationY needed to center a longitude is -(lon + 90°)
+  return -(lon + 90) * (Math.PI / 180);
+}
+
 interface PostObject {
   localPos: THREE.Vector3;
   dot: THREE.Mesh;
