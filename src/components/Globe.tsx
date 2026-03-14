@@ -480,9 +480,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
       // Handle spinToLon — smoothly rotate to target longitude
       if (spinToLonRef.current !== null) {
-        // Convert target longitude to rotation.y
-        // In our projection: theta = (lon + 180) * PI/180, and x = -cos(lat)*cos(theta)
-        // To face a longitude, we need rotation.y such that it centers that lon
+        // Map longitude to the exact Y-rotation that puts that longitude at front-center
         const targetRotY = getRotationForCenteredLongitude(spinToLonRef.current);
         const diff = normalizeAngle(targetRotY - spinGroup.rotation.y);
 
