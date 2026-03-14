@@ -483,12 +483,8 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         // Convert target longitude to rotation.y
         // In our projection: theta = (lon + 180) * PI/180, and x = -cos(lat)*cos(theta)
         // To face a longitude, we need rotation.y such that it centers that lon
-        const targetRotY = spinToLonRef.current * (Math.PI / 180);
-        // Normalize both to [-PI, PI]
-        let diff = targetRotY - spinGroup.rotation.y;
-        // Normalize diff to [-PI, PI]
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
+        const targetRotY = getRotationForCenteredLongitude(spinToLonRef.current);
+        const diff = normalizeAngle(targetRotY - spinGroup.rotation.y);
 
         if (Math.abs(diff) < 0.005) {
           spinGroup.rotation.y += diff;
@@ -496,6 +492,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         } else {
           spinGroup.rotation.y += diff * 0.05;
         }
+
         drag.autoRotate = false;
         if (drag.arTimer) clearTimeout(drag.arTimer);
         drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
