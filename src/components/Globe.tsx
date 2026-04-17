@@ -145,7 +145,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     const solidMesh = new THREE.Mesh(
       new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
-      new THREE.MeshBasicMaterial({ color: 0xf4f1eb, depthWrite: true })
+      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true })
     );
 
     const wireMesh = new THREE.LineSegments(
