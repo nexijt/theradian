@@ -422,13 +422,14 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         // Determine if this post is selected
         const isSelected = selId === p.data.id;
 
+        const [tr, tg, tb] = p.tagColorRgb;
         if (eased > 0.01) {
           ctx2d.beginPath();
           ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
           ctx2d.lineTo(Math.round(midX), Math.round(midY));
           ctx2d.strokeStyle = isSelected
-            ? `rgba(26,74,255,${0.9 * eased})`
-            : `rgba(26,74,255,${0.5 * eased})`;
+            ? `rgba(${tr},${tg},${tb},${0.95 * eased})`
+            : `rgba(${tr},${tg},${tb},${0.55 * eased})`;
           ctx2d.lineWidth = isSelected ? 2 : 1.3;
           ctx2d.stroke();
         }
