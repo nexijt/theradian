@@ -1,6 +1,7 @@
 import React from "react";
 import type { FeedPost } from "@/hooks/useFeed";
 import AudioPlayer from "./AudioPlayer";
+import { getTagColor, normalizeTag } from "@/lib/tag-colors";
 
 interface PostPanelProps {
   post: FeedPost | null;
