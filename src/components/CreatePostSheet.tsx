@@ -167,7 +167,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
       </p>
 
       {/* Type toggle */}
-      <div className="flex mb-5 border rounded-sm overflow-hidden" style={{ borderColor: "hsl(0 0% 10% / 0.12)" }}>
+      <div className="flex mb-5 border rounded-sm overflow-hidden border-border">
         <button
           className={`flex-1 py-2 font-mono text-[0.58rem] tracking-[0.1em] uppercase border-none cursor-pointer transition-all ${
             postType === "photo" ? "bg-primary text-primary-foreground" : "bg-transparent text-muted-foreground"
@@ -193,10 +193,9 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         </div>
       ) : (
         <div
-          className="w-full border-dashed border-[1.5px] rounded-sm flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors hover:border-primary hover:text-primary mb-5 relative overflow-hidden"
+          className="w-full border-dashed border-[1.5px] rounded-sm flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors hover:border-primary hover:text-primary mb-5 relative overflow-hidden border-border"
           style={{
             aspectRatio: postType === "photo" ? "1/1" : "16/9",
-            borderColor: "hsl(0 0% 10% / 0.18)",
           }}
           onClick={() => fileRef.current?.click()}
         >
@@ -269,8 +268,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           placeholder="Notes on this log…"
-          className="w-full bg-foreground/[0.04] border rounded-sm px-3.5 py-2.5 font-serif text-base text-foreground outline-none transition-colors focus:border-primary resize-none h-20 leading-relaxed"
-          style={{ borderColor: "hsl(0 0% 10% / 0.12)" }}
+          className="w-full bg-foreground/[0.04] border border-border rounded-sm px-3.5 py-2.5 font-serif text-base text-foreground outline-none transition-colors focus:border-primary resize-none h-20 leading-relaxed"
         />
       </div>
 
@@ -278,8 +276,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
       <div className="flex gap-2.5 justify-end">
         <button
           onClick={() => { resetForm(); onClose(); }}
-          className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm border transition-all hover:border-primary hover:text-primary"
-          style={{ borderColor: "hsl(0 0% 10% / 0.2)" }}
+          className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm border border-border transition-all hover:border-primary hover:text-primary"
         >
           Cancel
         </button>
