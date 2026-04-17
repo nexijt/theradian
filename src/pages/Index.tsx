@@ -9,6 +9,7 @@ import { useFeed, type FeedPost } from "@/hooks/useFeed";
 import { useTheme } from "@/hooks/useTheme";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
@@ -19,7 +20,8 @@ const Index = () => {
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
-  const [activeCount, setActiveCount] = useState(Math.floor(Math.random() * 11) + 15);
+  const [activeCount, setActiveCount] = useState(1);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [spinToLon, setSpinToLon] = useState<number | null>(null);
   const { toast } = useToast();
   const visiblePostsRef = useRef<FeedPost[]>([]);
@@ -33,11 +35,39 @@ const Index = () => {
     return () => clearTimeout(t);
   }, []);
 
+  // Track real online/offline status
   useEffect(() => {
-    const iv = setInterval(() => {
-      setActiveCount((c) => Math.max(15, Math.min(25, c + Math.floor(Math.random() * 3) - 1)));
-    }, 3500);
-    return () => clearInterval(iv);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // Track real active users via Supabase Realtime Presence
+  useEffect(() => {
+    const presenceKey = crypto.randomUUID();
+    const channel = supabase.channel("theradian:presence", {
+      config: { presence: { key: presenceKey } },
+    });
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        setActiveCount(Object.keys(state).length);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ joined_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleVisiblePostsChange = useCallback((vp: FeedPost[]) => {
@@ -181,12 +211,15 @@ const Index = () => {
         <div
           className="w-[5px] h-[5px] rounded-full"
           style={{
-            background: navigator.onLine ? "#3dba6f" : "#e04040",
-            animation: navigator.onLine ? "lp 2.5s ease-in-out infinite" : "none",
+            background: isOnline ? "#3dba6f" : "#e04040",
+            animation: isOnline ? "lp 2.5s ease-in-out infinite" : "none",
           }}
         />
-        <span className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase text-muted-foreground hidden sm:inline">
-          Status: {navigator.onLine ? "Connected" : "Disconnected"}
+        <span
+          className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase hidden sm:inline"
+          style={{ color: isOnline ? undefined : "#e04040" }}
+        >
+          Status: {isOnline ? "Connected" : "Disconnected"}
         </span>
       </div>
 
