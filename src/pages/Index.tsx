@@ -21,7 +21,8 @@ const Index = () => {
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
-  const [activeCount, setActiveCount] = useState(Math.floor(Math.random() * 11) + 15);
+  const activeCount = usePresence();
+  const isOnline = useOnlineStatus();
   const [spinToLon, setSpinToLon] = useState<number | null>(null);
   const { toast } = useToast();
   const visiblePostsRef = useRef<FeedPost[]>([]);
@@ -33,13 +34,6 @@ const Index = () => {
   useEffect(() => {
     const t = setTimeout(() => setShowHint(false), 5500);
     return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    const iv = setInterval(() => {
-      setActiveCount((c) => Math.max(15, Math.min(25, c + Math.floor(Math.random() * 3) - 1)));
-    }, 3500);
-    return () => clearInterval(iv);
   }, []);
 
   const handleVisiblePostsChange = useCallback((vp: FeedPost[]) => {
