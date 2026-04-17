@@ -7,6 +7,8 @@ import CreatePostSheet from "@/components/CreatePostSheet";
 import { useAuth } from "@/hooks/useAuth";
 import { useFeed, type FeedPost } from "@/hooks/useFeed";
 import { useTheme } from "@/hooks/useTheme";
+import { usePresence } from "@/hooks/usePresence";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
