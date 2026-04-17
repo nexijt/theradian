@@ -354,6 +354,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       s.postObjects.forEach((p) => {
         if (p.isHidden && p.progress <= 0) {
           p.el.style.display = "none";
+          p.originEl.style.display = "none";
           return;
         }
 
