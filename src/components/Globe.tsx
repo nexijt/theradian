@@ -543,8 +543,10 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     s.postObjects.forEach((p) => {
       p.el.style.display = "none";
+      p.originEl.style.display = "none";
       s.spinGroup.remove(p.dot);
       p.el.remove();
+      p.originEl.remove();
     });
     const overlayCanvas = overlayRef.current;
     if (overlayCanvas) {
@@ -558,9 +560,10 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     s.postObjects = sorted.map((post, dateIndex) => {
       const localPos = projectPoint(post.lat, post.lon, RADIUS);
+      const tagColor = getTagColor(post.tag, post.type);
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.007, 8, 8),
-        new THREE.MeshBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0 })
+        new THREE.MeshBasicMaterial({ color: tagColor.hexNum, transparent: true, opacity: 0 })
       );
       dot.position.copy(localPos);
       s.spinGroup.add(dot);
@@ -569,18 +572,20 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       el.className = "post-dot type-" + post.type;
       el.style.display = "none";
       el.style.opacity = "0";
+      el.style.setProperty("--tag-color", tagColor.hex);
 
-      const tagLabel = post.tag ? `[${post.tag}]` : (post.type === "photo" ? "[PHOTO]" : "[AUDIO]");
+      const normalizedTag = normalizeTag(post.tag, post.type);
+      const tagLabel = `[${normalizedTag}]`;
       if (post.type === "photo") {
-        const snippet = post.caption.split(" ").slice(0, 4).join(" ") + "…";
-        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:hsl(228,100%,55%);text-align:center">${tagLabel}</div><div style="font-size:0.66rem;font-style:italic;color:#666;white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${snippet}</div>`;
+        const snippet = (post.caption || "").split(" ").slice(0, 4).join(" ") + "…";
+        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:${tagColor.hex};text-align:center">${tagLabel}</div><div style="font-size:0.66rem;font-style:italic;color:hsl(var(--muted-foreground));white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${snippet}</div>`;
       } else if (post.type === "audio") {
         const bars = Array.from({ length: 7 }, () => {
           const dur = (0.35 + Math.random() * 0.5).toFixed(2);
           const del = (Math.random() * 0.4).toFixed(2);
           return `<div class="voice-bar" style="--dur:${dur}s;animation-delay:${del}s"></div>`;
         }).join("");
-        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.42rem;letter-spacing:0.1em;text-transform:uppercase;color:hsl(228,100%,55%);line-height:1;text-align:center">${tagLabel}</div><div class="voice-bars">${bars}</div>`;
+        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.42rem;letter-spacing:0.1em;text-transform:uppercase;color:${tagColor.hex};line-height:1;text-align:center">${tagLabel}</div><div class="voice-bars">${bars}</div>`;
       }
 
       el.addEventListener("click", (e) => {
@@ -595,10 +600,18 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
       dotsContainer.appendChild(el);
 
+      // Pulsating origin dot — pinned to the projected post location
+      const originEl = document.createElement("div");
+      originEl.className = "globe-origin-dot";
+      originEl.style.display = "none";
+      originEl.style.setProperty("--tag-color", tagColor.hex);
+      dotsContainer.appendChild(originEl);
+
       return {
         localPos,
         dot,
         el,
+        originEl,
         data: post,
         progress: 0,
         lagX: null,
@@ -609,6 +622,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         isHidden: true,
         facing: 0,
         dateIndex,
+        tagColorRgb: tagColor.rgb,
       };
     });
 
