@@ -177,12 +177,12 @@ const Index = () => {
         <div
           className="w-[5px] h-[5px] rounded-full"
           style={{
-            background: navigator.onLine ? "#3dba6f" : "#e04040",
-            animation: navigator.onLine ? "lp 2.5s ease-in-out infinite" : "none",
+            background: isOnline ? "#3dba6f" : "#e04040",
+            animation: isOnline ? "lp 2.5s ease-in-out infinite" : "none",
           }}
         />
         <span className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase text-muted-foreground hidden sm:inline">
-          Status: {navigator.onLine ? "Connected" : "Disconnected"}
+          Status: {isOnline ? "Connected" : "Disconnected"}
         </span>
       </div>
 
