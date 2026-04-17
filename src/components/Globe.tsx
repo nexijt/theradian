@@ -543,6 +543,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     return () => {
       cancelAnimationFrame(animId);
+      themeObserver.disconnect();
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mousemove", onMouseMove);
