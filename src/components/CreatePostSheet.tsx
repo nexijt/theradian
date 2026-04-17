@@ -4,24 +4,10 @@ import { trimAudioToSeconds } from "@/lib/audio-utils";
 import { useToast } from "@/hooks/use-toast";
 import ImageCropper from "./ImageCropper";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { PHOTO_TAG_COLORS, AUDIO_TAG_COLORS, TAG_DESCRIPTIONS } from "@/lib/tag-colors";
 
-const AUDIO_TAGS = ["MUSIC", "VOICE", "WRITING", "SFX"] as const;
-const PHOTO_TAGS = ["PHOTO", "DESIGN", "WRITING", "MATTER"] as const;
-
-const TAG_DESCRIPTIONS: Record<string, Record<string, string>> = {
-  photo: {
-    PHOTO: "photography. analogue or digital",
-    DESIGN: "digital edit.",
-    WRITING: "written by you.",
-    MATTER: "physical. analogue. crafted.",
-  },
-  audio: {
-    MUSIC: "music you made.",
-    VOICE: "singing. va.",
-    WRITING: "written by you.",
-    SFX: "you. nature. digital.",
-  },
-};
+const AUDIO_TAGS = ["MUSIC", "VOICE", "SPOKEN", "SOUND"] as const;
+const PHOTO_TAGS = ["PHOTO", "PIXEL", "INK", "MATTER"] as const;
 
 interface CreatePostSheetProps {
   open: boolean;
