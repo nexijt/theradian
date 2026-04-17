@@ -45,6 +45,7 @@ interface PostObject {
   localPos: THREE.Vector3;
   dot: THREE.Mesh;
   el: HTMLDivElement;
+  originEl: HTMLDivElement;
   data: FeedPost;
   progress: number;
   lagX: number | null;
@@ -55,6 +56,7 @@ interface PostObject {
   isHidden: boolean;
   facing: number;
   dateIndex: number;
+  tagColorRgb: [number, number, number];
 }
 
 interface GlobeProps {
