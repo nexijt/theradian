@@ -253,8 +253,8 @@ body::before {
   width: 2.5px;
   height: 14px;
   border-radius: 2px;
-  background: hsl(var(--primary));
-  opacity: 0.7;
+  background: var(--tag-color, hsl(var(--primary)));
+  opacity: 0.75;
   transform-origin: center;
   animation: barCenter var(--dur) ease-in-out infinite alternate;
 }
