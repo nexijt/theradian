@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Moon, Sun } from "lucide-react";
 import Globe from "@/components/Globe";
 import AuthModal from "@/components/AuthModal";
 import PostPanel from "@/components/PostPanel";
 import CreatePostSheet from "@/components/CreatePostSheet";
 import { useAuth } from "@/hooks/useAuth";
 import { useFeed, type FeedPost } from "@/hooks/useFeed";
+import { useTheme } from "@/hooks/useTheme";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
