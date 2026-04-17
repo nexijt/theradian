@@ -149,8 +149,8 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
       className="fixed inset-y-0 left-0 z-[80] w-[340px] max-w-[90vw] p-8 overflow-y-auto transition-transform duration-500"
       style={{
         transform: open ? "translateX(0)" : "translateX(-100%)",
-        background: "hsla(36,24%,94%,0.97)",
-        borderRight: "1px solid hsl(0 0% 10% / 0.09)",
+        background: "hsl(var(--popover) / 0.97)",
+        borderRight: "1px solid hsl(var(--border))",
         backdropFilter: "blur(10px)",
       }}
     >
@@ -235,14 +235,16 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
             {(postType === "audio" ? AUDIO_TAGS : PHOTO_TAGS).map((tag) => {
               const selected = postType === "audio" ? audioTag === tag : photoTag === tag;
               const desc = TAG_DESCRIPTIONS[postType]?.[tag] || tag;
+              const colorMap = postType === "audio" ? AUDIO_TAG_COLORS : PHOTO_TAG_COLORS;
+              const tagColor = colorMap[tag];
               return (
                 <Tooltip key={tag}>
                   <TooltipTrigger asChild>
                     <button
-                      className={`font-mono text-[0.52rem] tracking-[0.1em] uppercase px-3 py-1.5 rounded-sm border transition-all ${
-                        selected ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground"
-                      }`}
-                      style={!selected ? { borderColor: "hsl(0 0% 10% / 0.12)" } : {}}
+                      className="font-mono text-[0.52rem] tracking-[0.1em] uppercase px-3 py-1.5 rounded-sm border transition-all"
+                      style={selected
+                        ? { background: tagColor.hex, color: "#fff", borderColor: tagColor.hex }
+                        : { borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}
                       onClick={() => postType === "audio" ? setAudioTag(tag) : setPhotoTag(tag)}
                     >
                       [{tag}]
