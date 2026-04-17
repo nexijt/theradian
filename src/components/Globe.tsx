@@ -379,6 +379,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         const prog = p.progress;
         if (prog <= 0) {
           p.el.style.display = "none";
+          p.originEl.style.display = "none";
           (p.dot.material as THREE.MeshBasicMaterial).opacity = 0;
           p.lagX = null;
           p.lagY = null;
@@ -388,6 +389,17 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         const sp = toScreen(_wPos);
         const eased = easeInOut(prog);
         (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(0.45, prog * 1.5);
+
+        // Position the pulsating origin dot at the projected post location on the globe surface
+        const originAlpha = Math.max(0, Math.min(1, (facing + 0.05) / 0.25));
+        if (originAlpha > 0.02) {
+          p.originEl.style.display = "block";
+          p.originEl.style.left = sp.x + "px";
+          p.originEl.style.top = sp.y + "px";
+          p.originEl.style.opacity = String(originAlpha);
+        } else {
+          p.originEl.style.display = "none";
+        }
 
         const normalWorld = _nrm.clone();
         const tipWorld = _wPos.clone().add(normalWorld.clone().multiplyScalar(0.18));
