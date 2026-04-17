@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { CONTINENT_OUTLINES } from "@/lib/globe-data";
 import type { FeedPost } from "@/hooks/useFeed";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getTagColor, normalizeTag } from "@/lib/tag-colors";
 
 const RADIUS = 1.0;
 const LINE_MAX = 80;
