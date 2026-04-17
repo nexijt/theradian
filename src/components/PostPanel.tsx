@@ -15,6 +15,8 @@ export default function PostPanel({ post, onClose, onNext, onPrev }: PostPanelPr
 
   const isOpen = !!post;
   const locationText = post.location && post.location !== "Unknown" ? post.location : "Somewhere on Earth";
+  const tagColor = getTagColor(post.tag, post.type);
+  const normalizedTag = post.tag ? normalizeTag(post.tag, post.type) : null;
 
   return (
     <div
@@ -22,8 +24,8 @@ export default function PostPanel({ post, onClose, onNext, onPrev }: PostPanelPr
       style={{
         transform: isOpen ? "translateY(-50%) translateX(0)" : "translateY(-50%) translateX(calc(100% + 48px))",
         transition: "transform 0.45s cubic-bezier(0.22,1,0.36,1)",
-        background: "hsla(36,24%,94%,0.97)",
-        border: "1px solid hsl(0 0% 10% / 0.09)",
+        background: "hsl(var(--popover) / 0.97)",
+        border: "1px solid hsl(var(--border))",
         backdropFilter: "blur(10px)",
       }}
     >
@@ -34,10 +36,10 @@ export default function PostPanel({ post, onClose, onNext, onPrev }: PostPanelPr
         ✕
       </button>
 
-      <div className="font-mono text-[0.58rem] tracking-[0.14em] uppercase text-primary mb-2.5">
-        {post.tag ? `[${post.tag}] ` : ""}{locationText}
+      <div className="font-mono text-[0.58rem] tracking-[0.14em] uppercase mb-2.5" style={{ color: tagColor.hex }}>
+        {normalizedTag ? `[${normalizedTag}] ` : ""}{locationText}
       </div>
-      <div className="text-lg font-light italic mb-1">
+      <div className="text-lg font-light italic mb-1 text-foreground">
         @{post.user}
       </div>
       <div className="font-mono text-[0.56rem] text-muted-foreground tracking-[0.1em] mb-4">
