@@ -143,10 +143,29 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
     camera.position.set(0, 0, 3.8);
     camera.lookAt(0, 0, 0);
 
+    const solidMaterial = new THREE.MeshBasicMaterial({ color: 0xf4f1eb, depthWrite: true });
     const solidMesh = new THREE.Mesh(
       new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
-      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true })
+      solidMaterial
     );
+
+    // Keep solid sphere color in sync with theme background (so it obscures the grid pattern behind it)
+    function syncBgColor() {
+      const bgHsl = getComputedStyle(document.documentElement).getPropertyValue("--background").trim();
+      // bgHsl looks like "36 24% 94%" — convert via a temporary element
+      const tmp = document.createElement("div");
+      tmp.style.color = `hsl(${bgHsl})`;
+      document.body.appendChild(tmp);
+      const rgb = getComputedStyle(tmp).color; // e.g. "rgb(240, 235, 220)"
+      document.body.removeChild(tmp);
+      const m = rgb.match(/\d+/g);
+      if (m) {
+        solidMaterial.color.setRGB(+m[0] / 255, +m[1] / 255, +m[2] / 255);
+      }
+    }
+    syncBgColor();
+    const themeObserver = new MutationObserver(syncBgColor);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
     const wireMesh = new THREE.LineSegments(
       new THREE.WireframeGeometry(new THREE.SphereGeometry(RADIUS * 1.001, 36, 24)),
