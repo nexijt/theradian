@@ -108,7 +108,7 @@ export default function PostPanel({ post, onClose, onNext, onPrev }: PostPanelPr
         </div>
       )}
 
-      <div className="text-[0.93rem] leading-relaxed" style={{ color: "#444" }}>
+      <div className="text-[0.93rem] leading-relaxed text-foreground/75">
         {post.caption}
       </div>
     </div>
