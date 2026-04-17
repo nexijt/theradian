@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Moon, Sun } from "lucide-react";
 import Globe from "@/components/Globe";
 import AuthModal from "@/components/AuthModal";
 import PostPanel from "@/components/PostPanel";
 import CreatePostSheet from "@/components/CreatePostSheet";
 import { useAuth } from "@/hooks/useAuth";
 import { useFeed, type FeedPost } from "@/hooks/useFeed";
+import { useTheme } from "@/hooks/useTheme";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { currentPosts, loadInitial, loadMore } = useFeed();
+  const { theme, toggle: toggleTheme } = useTheme();
   const [authModal, setAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
@@ -101,13 +104,12 @@ const Index = () => {
           <span className="text-lg sm:text-xl font-light tracking-[0.28em] uppercase">THE RADIAN</span>
           <span className="font-mono text-[0.42rem] tracking-[0.14em] uppercase text-muted-foreground" style={{ marginTop: "-1px", paddingLeft: "2px" }}>ver. 0.1</span>
         </div>
-        <div className="flex gap-2 sm:gap-3 pointer-events-auto">
+        <div className="flex gap-2 sm:gap-3 pointer-events-auto items-center">
           {user ? (
             <>
               <button
                 onClick={handleSignOut}
-                className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border transition-all hover:border-primary hover:text-primary"
-                style={{ borderColor: "hsl(0 0% 10% / 0.2)" }}
+                className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border border-border transition-all hover:border-primary hover:text-primary"
               >
                 Sign out
               </button>
@@ -122,8 +124,7 @@ const Index = () => {
             <>
               <button
                 onClick={() => handleOpenAuth("login")}
-                className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border transition-all hover:border-primary hover:text-primary"
-                style={{ borderColor: "hsl(0 0% 10% / 0.2)" }}
+                className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border border-border transition-all hover:border-primary hover:text-primary"
               >
                 Sign in
               </button>
@@ -135,6 +136,14 @@ const Index = () => {
               </button>
             </>
           )}
+          <button
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-sm border border-border text-muted-foreground transition-all hover:border-primary hover:text-primary"
+          >
+            {theme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+          </button>
         </div>
       </nav>
 

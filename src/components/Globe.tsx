@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { CONTINENT_OUTLINES } from "@/lib/globe-data";
 import type { FeedPost } from "@/hooks/useFeed";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getTagColor, normalizeTag } from "@/lib/tag-colors";
 
 const RADIUS = 1.0;
 const LINE_MAX = 80;
@@ -44,6 +45,7 @@ interface PostObject {
   localPos: THREE.Vector3;
   dot: THREE.Mesh;
   el: HTMLDivElement;
+  originEl: HTMLDivElement;
   data: FeedPost;
   progress: number;
   lagX: number | null;
@@ -54,6 +56,7 @@ interface PostObject {
   isHidden: boolean;
   facing: number;
   dateIndex: number;
+  tagColorRgb: [number, number, number];
 }
 
 interface GlobeProps {
@@ -142,7 +145,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     const solidMesh = new THREE.Mesh(
       new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
-      new THREE.MeshBasicMaterial({ color: 0xf4f1eb, depthWrite: true })
+      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true })
     );
 
     const wireMesh = new THREE.LineSegments(
@@ -351,6 +354,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       s.postObjects.forEach((p) => {
         if (p.isHidden && p.progress <= 0) {
           p.el.style.display = "none";
+          p.originEl.style.display = "none";
           return;
         }
 
@@ -375,6 +379,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         const prog = p.progress;
         if (prog <= 0) {
           p.el.style.display = "none";
+          p.originEl.style.display = "none";
           (p.dot.material as THREE.MeshBasicMaterial).opacity = 0;
           p.lagX = null;
           p.lagY = null;
@@ -384,6 +389,17 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         const sp = toScreen(_wPos);
         const eased = easeInOut(prog);
         (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(0.45, prog * 1.5);
+
+        // Position the pulsating origin dot at the projected post location on the globe surface
+        const originAlpha = Math.max(0, Math.min(1, (facing + 0.05) / 0.25));
+        if (originAlpha > 0.02) {
+          p.originEl.style.display = "block";
+          p.originEl.style.left = sp.x + "px";
+          p.originEl.style.top = sp.y + "px";
+          p.originEl.style.opacity = String(originAlpha);
+        } else {
+          p.originEl.style.display = "none";
+        }
 
         const normalWorld = _nrm.clone();
         const tipWorld = _wPos.clone().add(normalWorld.clone().multiplyScalar(0.18));
@@ -419,13 +435,14 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         // Determine if this post is selected
         const isSelected = selId === p.data.id;
 
+        const [tr, tg, tb] = p.tagColorRgb;
         if (eased > 0.01) {
           ctx2d.beginPath();
           ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
           ctx2d.lineTo(Math.round(midX), Math.round(midY));
           ctx2d.strokeStyle = isSelected
-            ? `rgba(26,74,255,${0.9 * eased})`
-            : `rgba(26,74,255,${0.5 * eased})`;
+            ? `rgba(${tr},${tg},${tb},${0.95 * eased})`
+            : `rgba(${tr},${tg},${tb},${0.55 * eased})`;
           ctx2d.lineWidth = isSelected ? 2 : 1.3;
           ctx2d.stroke();
         }
@@ -526,8 +543,10 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     s.postObjects.forEach((p) => {
       p.el.style.display = "none";
+      p.originEl.style.display = "none";
       s.spinGroup.remove(p.dot);
       p.el.remove();
+      p.originEl.remove();
     });
     const overlayCanvas = overlayRef.current;
     if (overlayCanvas) {
@@ -541,9 +560,10 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     s.postObjects = sorted.map((post, dateIndex) => {
       const localPos = projectPoint(post.lat, post.lon, RADIUS);
+      const tagColor = getTagColor(post.tag, post.type);
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.007, 8, 8),
-        new THREE.MeshBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0 })
+        new THREE.MeshBasicMaterial({ color: tagColor.hexNum, transparent: true, opacity: 0 })
       );
       dot.position.copy(localPos);
       s.spinGroup.add(dot);
@@ -552,18 +572,20 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       el.className = "post-dot type-" + post.type;
       el.style.display = "none";
       el.style.opacity = "0";
+      el.style.setProperty("--tag-color", tagColor.hex);
 
-      const tagLabel = post.tag ? `[${post.tag}]` : (post.type === "photo" ? "[PHOTO]" : "[AUDIO]");
+      const normalizedTag = normalizeTag(post.tag, post.type);
+      const tagLabel = `[${normalizedTag}]`;
       if (post.type === "photo") {
-        const snippet = post.caption.split(" ").slice(0, 4).join(" ") + "…";
-        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:hsl(228,100%,55%);text-align:center">${tagLabel}</div><div style="font-size:0.66rem;font-style:italic;color:#666;white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${snippet}</div>`;
+        const snippet = (post.caption || "").split(" ").slice(0, 4).join(" ") + "…";
+        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:${tagColor.hex};text-align:center">${tagLabel}</div><div style="font-size:0.66rem;font-style:italic;color:hsl(var(--muted-foreground));white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${snippet}</div>`;
       } else if (post.type === "audio") {
         const bars = Array.from({ length: 7 }, () => {
           const dur = (0.35 + Math.random() * 0.5).toFixed(2);
           const del = (Math.random() * 0.4).toFixed(2);
           return `<div class="voice-bar" style="--dur:${dur}s;animation-delay:${del}s"></div>`;
         }).join("");
-        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.42rem;letter-spacing:0.1em;text-transform:uppercase;color:hsl(228,100%,55%);line-height:1;text-align:center">${tagLabel}</div><div class="voice-bars">${bars}</div>`;
+        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.42rem;letter-spacing:0.1em;text-transform:uppercase;color:${tagColor.hex};line-height:1;text-align:center">${tagLabel}</div><div class="voice-bars">${bars}</div>`;
       }
 
       el.addEventListener("click", (e) => {
@@ -578,10 +600,18 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
       dotsContainer.appendChild(el);
 
+      // Pulsating origin dot — pinned to the projected post location
+      const originEl = document.createElement("div");
+      originEl.className = "globe-origin-dot";
+      originEl.style.display = "none";
+      originEl.style.setProperty("--tag-color", tagColor.hex);
+      dotsContainer.appendChild(originEl);
+
       return {
         localPos,
         dot,
         el,
+        originEl,
         data: post,
         progress: 0,
         lagX: null,
@@ -592,6 +622,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         isHidden: true,
         facing: 0,
         dateIndex,
+        tagColorRgb: tagColor.rgb,
       };
     });
 
