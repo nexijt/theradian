@@ -120,15 +120,16 @@ body::after {
   opacity: 0.45;
 }
 
-/* Subtle dashed line pattern — stroke color via CSS var so it inverts in dark mode */
+/* Subtle line pattern — color driven by CSS var so it inverts in dark mode */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Cline x1='0' y1='10' x2='6' y2='10' stroke='currentColor' stroke-width='0.5'/%3E%3Cline x1='10' y1='0' x2='10' y2='6' stroke='currentColor' stroke-width='0.5'/%3E%3C/svg%3E");
-  background-size: 20px 20px;
-  color: rgb(var(--bg-pattern-stroke));
-  opacity: var(--bg-pattern-opacity);
+  background-image:
+    linear-gradient(to right, rgba(var(--bg-pattern-stroke), var(--bg-pattern-opacity)) 0.5px, transparent 0.5px),
+    linear-gradient(to bottom, rgba(var(--bg-pattern-stroke), var(--bg-pattern-opacity)) 0.5px, transparent 0.5px);
+  background-size: 20px 20px, 20px 20px;
+  background-position: 0 10px, 10px 0;
   pointer-events: none;
   z-index: 0;
 }

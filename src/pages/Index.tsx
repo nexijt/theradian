@@ -7,8 +7,6 @@ import CreatePostSheet from "@/components/CreatePostSheet";
 import { useAuth } from "@/hooks/useAuth";
 import { useFeed, type FeedPost } from "@/hooks/useFeed";
 import { useTheme } from "@/hooks/useTheme";
-import { usePresence } from "@/hooks/usePresence";
-import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,8 +19,7 @@ const Index = () => {
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
-  const activeCount = usePresence();
-  const isOnline = useOnlineStatus();
+  const [activeCount, setActiveCount] = useState(Math.floor(Math.random() * 11) + 15);
   const [spinToLon, setSpinToLon] = useState<number | null>(null);
   const { toast } = useToast();
   const visiblePostsRef = useRef<FeedPost[]>([]);
@@ -34,6 +31,13 @@ const Index = () => {
   useEffect(() => {
     const t = setTimeout(() => setShowHint(false), 5500);
     return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setActiveCount((c) => Math.max(15, Math.min(25, c + Math.floor(Math.random() * 3) - 1)));
+    }, 3500);
+    return () => clearInterval(iv);
   }, []);
 
   const handleVisiblePostsChange = useCallback((vp: FeedPost[]) => {
@@ -177,12 +181,12 @@ const Index = () => {
         <div
           className="w-[5px] h-[5px] rounded-full"
           style={{
-            background: isOnline ? "#3dba6f" : "#e04040",
-            animation: isOnline ? "lp 2.5s ease-in-out infinite" : "none",
+            background: navigator.onLine ? "#3dba6f" : "#e04040",
+            animation: navigator.onLine ? "lp 2.5s ease-in-out infinite" : "none",
           }}
         />
         <span className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase text-muted-foreground hidden sm:inline">
-          Status: {isOnline ? "Connected" : "Disconnected"}
+          Status: {navigator.onLine ? "Connected" : "Disconnected"}
         </span>
       </div>
 
