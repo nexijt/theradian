@@ -1,31 +1,44 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const FAKE_DOMAIN = "radian.app";
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
-function usernameToEmail(username: string): string {
-  return `${username.toLowerCase().trim()}@${FAKE_DOMAIN}`;
+function cleanUsername(u: string) {
+  return u.toLowerCase().trim();
 }
 
-export async function signUp(username: string, password: string, displayName?: string) {
-  const email = usernameToEmail(username);
+export function validateUsername(username: string): string | null {
+  if (!USERNAME_RE.test(username.trim())) {
+    return "Username must be 3–20 chars: letters, numbers, underscore";
+  }
+  return null;
+}
 
-  // Check if username is already taken
-  const { data: existing } = await supabase
+export async function isUsernameAvailable(username: string): Promise<boolean> {
+  const { data } = await supabase
     .from("profiles")
     .select("id")
-    .eq("username", username.toLowerCase().trim())
+    .ilike("username", cleanUsername(username))
     .maybeSingle();
+  return !data;
+}
 
-  if (existing) {
-    throw new Error("Username is already taken");
-  }
+export async function signUp(email: string, username: string, password: string) {
+  const cleaned = cleanUsername(username);
+
+  const usernameError = validateUsername(cleaned);
+  if (usernameError) throw new Error(usernameError);
+
+  const available = await isUsernameAvailable(cleaned);
+  if (!available) throw new Error("Username is already taken");
 
   const { data, error } = await supabase.auth.signUp({
-    email,
+    email: email.trim(),
     password,
     options: {
+      emailRedirectTo: `${window.location.origin}/`,
       data: {
-        display_name: displayName || username,
+        username: cleaned,
+        display_name: cleaned,
       },
     },
   });
@@ -34,8 +47,23 @@ export async function signUp(username: string, password: string, displayName?: s
   return data;
 }
 
-export async function signIn(username: string, password: string) {
-  const email = usernameToEmail(username);
+export async function signIn(emailOrUsername: string, password: string) {
+  let email = emailOrUsername.trim();
+
+  // If input doesn't look like an email, treat it as a username and look up the email.
+  if (!email.includes("@")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email")
+      .ilike("username", cleanUsername(email))
+      .maybeSingle();
+
+    if (!profile?.email) {
+      throw new Error("No account found with that username");
+    }
+    email = profile.email;
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -46,6 +74,18 @@ export async function signIn(username: string, password: string) {
 
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
+export async function requestPasswordReset(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/reset-password`,
+  });
+  if (error) throw error;
+}
+
+export async function updatePassword(newPassword: string) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw error;
 }
 
