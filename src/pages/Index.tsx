@@ -1,18 +1,26 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Moon, Sun } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Globe from "@/components/Globe";
 import AuthModal from "@/components/AuthModal";
 import PostPanel from "@/components/PostPanel";
 import CreatePostSheet from "@/components/CreatePostSheet";
+import LandingOverlay from "@/components/LandingOverlay";
+import OrbitingMoon from "@/components/OrbitingMoon";
 import { useAuth } from "@/hooks/useAuth";
+import { useMyProfile } from "@/hooks/useProfile";
 import { useFeed, type FeedPost } from "@/hooks/useFeed";
 import { useTheme } from "@/hooks/useTheme";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+const LANDING_SEEN_KEY = "radian-landing-seen";
+
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
+  const { profile } = useMyProfile(user);
+  const navigate = useNavigate();
   const { currentPosts, loadInitial, loadMore } = useFeed();
   const { theme, toggle: toggleTheme } = useTheme();
   const [authModal, setAuthModal] = useState(false);
@@ -23,6 +31,10 @@ const Index = () => {
   const [activeCount, setActiveCount] = useState(1);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [spinToLon, setSpinToLon] = useState<number | null>(null);
+  const [landingOpen, setLandingOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !localStorage.getItem(LANDING_SEEN_KEY);
+  });
   const { toast } = useToast();
   const visiblePostsRef = useRef<FeedPost[]>([]);
 
@@ -126,6 +138,15 @@ const Index = () => {
     toast({ title: "Signed out" });
   };
 
+  const dismissLanding = () => {
+    localStorage.setItem(LANDING_SEEN_KEY, "1");
+    setLandingOpen(false);
+  };
+
+  const goToMyMoon = () => {
+    if (profile?.username) navigate(`/u/${profile.username}`);
+  };
+
   return (
     <div className="w-full h-screen overflow-hidden">
       {/* Nav */}
@@ -135,6 +156,12 @@ const Index = () => {
           <span className="font-mono text-[0.42rem] tracking-[0.14em] uppercase text-muted-foreground" style={{ marginTop: "-1px", paddingLeft: "2px" }}>ver. 0.1</span>
         </div>
         <div className="flex gap-2 sm:gap-3 pointer-events-auto items-center">
+          <button
+            onClick={() => setLandingOpen(true)}
+            className="font-mono text-[0.55rem] sm:text-[0.6rem] tracking-[0.18em] uppercase text-muted-foreground hover:text-primary transition-colors mr-1 hidden sm:inline"
+          >
+            About
+          </button>
           {user ? (
             <>
               <button
@@ -208,19 +235,31 @@ const Index = () => {
 
       {/* Status indicator */}
       <div className="fixed bottom-6 sm:bottom-8 left-4 sm:left-8 z-50 flex items-center gap-2 pointer-events-none">
-        <div
-          className="w-[5px] h-[5px] rounded-full"
-          style={{
-            background: isOnline ? "#3dba6f" : "#e04040",
-            animation: isOnline ? "lp 2.5s ease-in-out infinite" : "none",
-          }}
-        />
-        <span
-          className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase hidden sm:inline"
-          style={{ color: isOnline ? undefined : "#e04040" }}
-        >
-          Status: {isOnline ? "Connected" : "Disconnected"}
-        </span>
+        <div className="flex flex-col gap-1">
+          {profile?.username && (
+            <div className="flex items-center gap-2">
+              <div className="w-[5px] h-[5px] rounded-full bg-primary" style={{ animation: "lp 2.5s ease-in-out infinite" }} />
+              <span className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase hidden sm:inline text-foreground">
+                Signal: {profile.username}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <div
+              className="w-[5px] h-[5px] rounded-full"
+              style={{
+                background: isOnline ? "#3dba6f" : "#e04040",
+                animation: isOnline ? "lp 2.5s ease-in-out infinite" : "none",
+              }}
+            />
+            <span
+              className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase hidden sm:inline"
+              style={{ color: isOnline ? undefined : "#e04040" }}
+            >
+              Status: {isOnline ? "Connected" : "Disconnected"}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Post panel (right side) */}
@@ -247,6 +286,14 @@ const Index = () => {
           onPostCreated={loadInitial}
         />
       )}
+
+      {/* Orbiting moon — only when signed in, links to your profile */}
+      {user && profile?.username && (
+        <OrbitingMoon onClick={goToMyMoon} label={`@${profile.username}`} />
+      )}
+
+      {/* Landing overlay (first visit + manual reopen) */}
+      <LandingOverlay open={landingOpen} onEnter={dismissLanding} />
     </div>
   );
 };
