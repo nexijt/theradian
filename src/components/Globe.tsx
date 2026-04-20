@@ -11,8 +11,8 @@ const EASE = 0.065;
 const LAG_SPEED = 0.045;
 const OVERLAP_THRESH = 55;
 const WINDOW_SIZE = 10;
-const MOBILE_SCALE = 0.55;
-const DESKTOP_SCALE = 0.9;
+const MOBILE_SCALE = 0.67;
+const DESKTOP_SCALE = 1.1;
 
 function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
   const latR = lat * (Math.PI / 180);
@@ -136,7 +136,13 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0xf4f1eb, 0);
+    const updateBg = () => {
+      const dark = document.documentElement.classList.contains("dark");
+      renderer.setClearColor(dark ? 0x141414 : 0xf5f0e8, 0.5);
+    };
+    updateBg();
+    const themeObs = new MutationObserver(updateBg);
+    themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 1000);
@@ -150,10 +156,10 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     const wireMesh = new THREE.LineSegments(
       new THREE.WireframeGeometry(new THREE.SphereGeometry(RADIUS * 1.001, 36, 24)),
-      new THREE.LineBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0.15 })
+      new THREE.LineBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0.18 })
     );
 
-    const outlineMat = new THREE.LineBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0.72 });
+    const outlineMat = new THREE.LineBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0.864, linewidth: 1.2 });
     const outlineGroup = new THREE.Group();
     CONTINENT_OUTLINES.forEach((coords) => {
       const pts = coords.map(([lo, la]) => projectPoint(la, lo, RADIUS * 1.003));
@@ -524,6 +530,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
     return () => {
       cancelAnimationFrame(animId);
+      themeObs.disconnect();
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mousemove", onMouseMove);
