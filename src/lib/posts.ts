@@ -44,6 +44,29 @@ export async function fetchPosts(offset: number, limit: number = 20): Promise<Po
   });
 }
 
+export async function fetchPostsByUserId(userId: string): Promise<PostWithProfile[]> {
+  const { data: posts, error } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  if (!posts || posts.length === 0) return [];
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("user_id, username, display_name")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return posts.map(post => ({
+    ...post,
+    username: profile?.username || "anonymous",
+    display_name: profile?.display_name || null,
+  }));
+}
+
 export async function hasPostedToday(userId: string, type: "photo" | "audio"): Promise<boolean> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
