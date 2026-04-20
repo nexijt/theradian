@@ -273,3 +273,22 @@ body::before {
 .font-mono-ui {
   font-family: 'Geist Mono', monospace;
 }
+
+/* Moon page post markers */
+.moon-post-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  background: var(--tag-color, hsl(var(--primary)));
+  box-shadow:
+    0 0 0 2.5px color-mix(in srgb, var(--tag-color) 20%, transparent),
+    0 0 8px color-mix(in srgb, var(--tag-color) 40%, transparent);
+  transition: transform 0.15s;
+  pointer-events: all;
+}
+.moon-post-dot:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+}
