@@ -144,7 +144,7 @@ const Index = () => {
   };
 
   const goToMyMoon = () => {
-    if (profile?.username) navigate(`/u/${profile.username}`);
+    if (profile?.username) navigate(`/@${profile.username}`);
   };
 
   return (

@@ -27,7 +27,9 @@ function dbToFeed(p: PostWithProfile): FeedPost {
 }
 
 const Profile = () => {
-  const { username } = useParams<{ username: string }>();
+  // Route is /:username — URL is /@nexijt, param captures "@nexijt", strip the @
+  const { username: rawParam } = useParams<{ username: string }>();
+  const username = rawParam?.startsWith("@") ? rawParam.slice(1) : rawParam;
   const navigate = useNavigate();
   const { user } = useAuth();
   const { profile: myProfile, refresh: refreshMyProfile } = useMyProfile(user);
@@ -36,6 +38,13 @@ const Profile = () => {
   const [postsLoading, setPostsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [entered, setEntered] = useState(false);
+
+  // Trigger entrance animation after mount
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
 
   const isMe = useMemo(
     () => !!user && !!profile && profile.user_id === user.id,
@@ -80,7 +89,15 @@ const Profile = () => {
   const displayName = profile.display_name || profile.username;
 
   return (
-    <div className="w-full h-screen overflow-hidden relative">
+    <div
+      className="w-full h-screen overflow-hidden relative"
+      style={{
+        transformOrigin: "bottom right",
+        transform: entered ? "scale(1)" : "scale(0.92)",
+        opacity: entered ? 1 : 0,
+        transition: "transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease",
+      }}
+    >
       {/* Top nav */}
       <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-9 py-3 sm:py-5 z-50">
         <button
@@ -91,11 +108,11 @@ const Profile = () => {
           Back to globe
         </button>
         <div className="font-mono text-[0.55rem] sm:text-[0.62rem] tracking-[0.22em] uppercase text-muted-foreground">
-          {displayName}'s moon
+          {isMe ? "your moon" : `${displayName}'s moon`}
         </div>
       </nav>
 
-      {/* Moon scene */}
+      {/* Moon scene — fills entire screen */}
       <div className="absolute inset-0">
         <Moon posts={posts} onPostClick={setSelectedPost} />
       </div>
@@ -103,12 +120,16 @@ const Profile = () => {
       {/* Profile card (left) */}
       <div
         className="fixed top-1/2 left-4 sm:left-8 -translate-y-1/2 z-40 w-[260px] max-w-[80vw] p-6 rounded-sm border border-border"
-        style={{ background: "hsl(var(--popover) / 0.85)", backdropFilter: "blur(10px)" }}
+        style={{
+          background: "hsl(var(--popover) / 0.85)",
+          backdropFilter: "blur(10px)",
+          opacity: entered ? 1 : 0,
+          transform: entered ? "translateX(0)" : "translateX(-16px)",
+          transition: "opacity 0.5s ease 0.25s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.25s",
+        }}
       >
         <div className="flex items-start gap-3 mb-4">
-          <div
-            className="w-14 h-14 rounded-full bg-secondary border border-border overflow-hidden flex items-center justify-center"
-          >
+          <div className="w-14 h-14 rounded-full bg-secondary border border-border overflow-hidden flex items-center justify-center">
             {profile.avatar_url ? (
               <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
             ) : (
@@ -161,7 +182,7 @@ const Profile = () => {
 
       {/* Hint */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 font-mono text-[0.5rem] sm:text-[0.55rem] tracking-[0.2em] uppercase text-muted-foreground z-40 pointer-events-none whitespace-nowrap">
-        Drag to rotate the moon · Click a log to view
+        Drag to rotate · Click a log to view
       </div>
     </div>
   );
