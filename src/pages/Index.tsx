@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Moon, Sun } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Moon, Sun, Edit2 } from "lucide-react";
 import Globe from "@/components/Globe";
+import MoonScene from "@/components/Moon";
 import AuthModal from "@/components/AuthModal";
 import PostPanel from "@/components/PostPanel";
 import CreatePostSheet from "@/components/CreatePostSheet";
 import LandingOverlay from "@/components/LandingOverlay";
 import OrbitingMoon from "@/components/OrbitingMoon";
+import EditProfileModal from "@/components/EditProfileModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useFeed, type FeedPost } from "@/hooks/useFeed";
@@ -14,15 +15,39 @@ import { useTheme } from "@/hooks/useTheme";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchPostsByUserId, type PostWithProfile } from "@/lib/posts";
 
 const LANDING_SEEN_KEY = "radian-landing-seen";
 
+function dbToFeed(p: PostWithProfile): FeedPost {
+  return {
+    id: p.id,
+    lat: p.latitude || 0,
+    lon: p.longitude || 0,
+    user: p.username,
+    location:
+      [p.city, p.country].filter(Boolean).join(", ") || "Somewhere on Earth",
+    caption: p.caption || "",
+    time: new Date(p.created_at).toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    type: p.type as "photo" | "audio",
+    mediaUrl: p.media_url,
+    displayName: p.display_name || undefined,
+    tag: p.tag || undefined,
+    createdAt: p.created_at,
+  };
+}
+
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
-  const { profile } = useMyProfile(user);
-  const navigate = useNavigate();
+  const { profile, refresh: refreshMyProfile } = useMyProfile(user);
   const { currentPosts, loadInitial, loadMore } = useFeed();
   const { theme, toggle: toggleTheme } = useTheme();
+
+  // Earth view state
   const [authModal, setAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
@@ -38,6 +63,16 @@ const Index = () => {
   const { toast } = useToast();
   const visiblePostsRef = useRef<FeedPost[]>([]);
 
+  // Moon / transition state
+  const [sceneView, setSceneView] = useState<"earth" | "moon">("earth");
+  const [moonMounted, setMoonMounted] = useState(false);
+  const [moonPosts, setMoonPosts] = useState<FeedPost[]>([]);
+  const [moonPostsLoading, setMoonPostsLoading] = useState(false);
+  const [selectedMoonPost, setSelectedMoonPost] = useState<FeedPost | null>(
+    null,
+  );
+  const [editOpen, setEditOpen] = useState(false);
+
   useEffect(() => {
     loadInitial();
   }, [loadInitial]);
@@ -47,25 +82,24 @@ const Index = () => {
     return () => clearTimeout(t);
   }, []);
 
-  // Track real online/offline status
+  // Online/offline
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+    const on = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
     };
   }, []);
 
-  // Track real active users via Supabase Realtime Presence
+  // Realtime presence
   useEffect(() => {
     const presenceKey = crypto.randomUUID();
     const channel = supabase.channel("theradian:presence", {
       config: { presence: { key: presenceKey } },
     });
-
     channel
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState();
@@ -76,11 +110,20 @@ const Index = () => {
           await channel.track({ joined_at: new Date().toISOString() });
         }
       });
-
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // Load moon posts when entering moon view
+  useEffect(() => {
+    if (sceneView === "moon" && profile) {
+      setMoonPostsLoading(true);
+      fetchPostsByUserId(profile.user_id)
+        .then((rows) => setMoonPosts(rows.map(dbToFeed)))
+        .finally(() => setMoonPostsLoading(false));
+    }
+  }, [sceneView, profile]);
 
   const handleVisiblePostsChange = useCallback((vp: FeedPost[]) => {
     visiblePostsRef.current = vp;
@@ -93,14 +136,13 @@ const Index = () => {
 
   const handleNextPost = useCallback(() => {
     if (!selectedPost) return;
-    // Sort visible posts by longitude, find next higher lon
     const sorted = [...visiblePostsRef.current].sort((a, b) => a.lon - b.lon);
     if (sorted.length === 0) return;
     const currentLon = selectedPost.lon;
-    // Find first post with higher longitude
-    let next = sorted.find(p => p.lon > currentLon && p.id !== selectedPost.id);
-    // Wrap around
-    if (!next) next = sorted.find(p => p.id !== selectedPost.id);
+    let next = sorted.find(
+      (p) => p.lon > currentLon && p.id !== selectedPost.id,
+    );
+    if (!next) next = sorted.find((p) => p.id !== selectedPost.id);
     if (!next) return;
     setSelectedPost(next);
     setSpinToLon(next.lon);
@@ -111,10 +153,11 @@ const Index = () => {
     const sorted = [...visiblePostsRef.current].sort((a, b) => a.lon - b.lon);
     if (sorted.length === 0) return;
     const currentLon = selectedPost.lon;
-    // Find last post with lower longitude
     const reversed = [...sorted].reverse();
-    let prev = reversed.find(p => p.lon < currentLon && p.id !== selectedPost.id);
-    if (!prev) prev = reversed.find(p => p.id !== selectedPost.id);
+    let prev = reversed.find(
+      (p) => p.lon < currentLon && p.id !== selectedPost.id,
+    );
+    if (!prev) prev = reversed.find((p) => p.id !== selectedPost.id);
     if (!prev) return;
     setSelectedPost(prev);
     setSpinToLon(prev.lon);
@@ -144,16 +187,195 @@ const Index = () => {
   };
 
   const goToMyMoon = () => {
-    if (profile?.username) navigate(`/@${profile.username}`);
+    if (!user || !profile?.username) return;
+    setMoonMounted(true);
+    setSceneView("moon");
+    setSelectedPost(null);
+    setSpinToLon(null);
   };
+
+  const goToEarth = () => {
+    setSceneView("earth");
+    setSelectedMoonPost(null);
+  };
+
+  const displayName = profile?.display_name || profile?.username || "";
+
+  // Which post to show in the panel
+  const activePost = sceneView === "earth" ? selectedPost : selectedMoonPost;
+  const closeActivePost =
+    sceneView === "earth"
+      ? () => {
+          setSelectedPost(null);
+          setSpinToLon(null);
+        }
+      : () => setSelectedMoonPost(null);
 
   return (
     <div className="w-full h-screen overflow-hidden">
-      {/* Nav */}
+      {/* ── EARTH GLOBE SCENE ──────────────────────────────────────── */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          transformOrigin: "bottom left",
+          transform: sceneView === "moon" ? "scale(0.32)" : "scale(1)",
+          opacity: sceneView === "moon" ? 0.96 : 1,
+          transition:
+            "transform 1.4s cubic-bezier(0.16,1,0.3,1), opacity 1.1s ease",
+          zIndex: 5,
+          pointerEvents: sceneView === "moon" ? "none" : "auto",
+          borderRadius: sceneView === "moon" ? "8px" : "0",
+          overflow: "hidden",
+        }}
+      >
+        <Globe
+          posts={currentPosts}
+          onPostClick={handlePostClick}
+          paused={!!selectedPost}
+          onNeedMore={loadMore}
+          selectedPostId={selectedPost?.id}
+          spinToLon={spinToLon}
+          onVisiblePostsChange={handleVisiblePostsChange}
+        />
+      </div>
+
+      {/* Clickable overlay for mini-globe (in moon view) */}
+      {moonMounted && (
+        <button
+          onClick={goToEarth}
+          aria-label="Back to Earth globe"
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            width: "32vw",
+            height: "32vh",
+            zIndex: 7,
+            cursor: sceneView === "moon" ? "pointer" : "default",
+            background: "transparent",
+            border: "none",
+            display: sceneView === "moon" ? "block" : "none",
+          }}
+        />
+      )}
+
+      {/* Mini-globe label (earth in moon view) */}
+      {moonMounted && sceneView === "moon" && (
+        <div
+          className="font-mono-ui"
+          style={{
+            position: "fixed",
+            bottom: "calc(32vh + 6px)",
+            left: 8,
+            fontSize: "0.42rem",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "hsl(var(--muted-foreground))",
+            zIndex: 8,
+            pointerEvents: "none",
+            opacity: sceneView === "moon" ? 1 : 0,
+            transition: "opacity 0.5s ease 0.9s",
+          }}
+        >
+          ← GLOBE
+        </div>
+      )}
+
+      {/* ── MOON SCENE ─────────────────────────────────────────────── */}
+      {moonMounted && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            transformOrigin: "bottom right",
+            transform: sceneView === "moon" ? "scale(1)" : "scale(0.08)",
+            opacity: sceneView === "moon" ? 1 : 0,
+            transition:
+              "transform 1.4s cubic-bezier(0.16,1,0.3,1), opacity 0.9s ease",
+            pointerEvents: sceneView === "moon" ? "auto" : "none",
+            zIndex: 6,
+          }}
+        >
+          <MoonScene posts={moonPosts} onPostClick={setSelectedMoonPost} />
+        </div>
+      )}
+
+      {/* ── PROFILE CARD (moon view) ────────────────────────────────── */}
+      {moonMounted && profile && (
+        <div
+          className="fixed top-1/2 left-4 sm:left-8 -translate-y-1/2 z-40 w-[260px] max-w-[80vw] p-6 rounded-sm border border-border"
+          style={{
+            background: "hsl(var(--popover) / 0.85)",
+            backdropFilter: "blur(10px)",
+            opacity: sceneView === "moon" ? 1 : 0,
+            transform:
+              sceneView === "moon"
+                ? "translateY(-50%) translateX(0)"
+                : "translateY(-50%) translateX(-18px)",
+            transition:
+              "opacity 0.7s ease 0.5s, transform 0.8s cubic-bezier(0.16,1,0.3,1) 0.5s",
+            pointerEvents: sceneView === "moon" ? "auto" : "none",
+          }}
+        >
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-14 h-14 rounded-full bg-secondary border border-border overflow-hidden flex items-center justify-center flex-shrink-0">
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-xl font-light italic text-muted-foreground">
+                  {displayName.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-lg font-light italic truncate text-foreground">
+                {displayName}
+              </div>
+              <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-muted-foreground truncate">
+                @{profile.username}
+              </div>
+            </div>
+          </div>
+
+          {profile.bio && (
+            <p className="font-serif text-sm text-foreground/80 leading-relaxed mb-4 italic">
+              {profile.bio}
+            </p>
+          )}
+
+          <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-muted-foreground mb-4">
+            {moonPostsLoading
+              ? "…"
+              : `${moonPosts.length} ${moonPosts.length === 1 ? "log" : "logs"}`}
+          </div>
+
+          <button
+            onClick={() => setEditOpen(true)}
+            className="flex items-center gap-2 font-mono text-[0.55rem] tracking-[0.14em] uppercase px-3 py-1.5 rounded-sm border border-border hover:border-primary hover:text-primary transition-all"
+          >
+            <Edit2 className="w-3 h-3" />
+            Edit moon
+          </button>
+        </div>
+      )}
+
+      {/* ── NAV ────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-9 py-3 sm:py-5 z-50 pointer-events-none">
         <div className="flex flex-col">
-          <span className="text-lg sm:text-xl font-light tracking-[0.28em] uppercase">THE RADIAN</span>
-          <span className="font-mono text-[0.42rem] tracking-[0.14em] uppercase text-muted-foreground" style={{ marginTop: "-1px", paddingLeft: "2px" }}>ver. 0.1</span>
+          <span className="text-lg sm:text-xl font-light tracking-[0.28em] uppercase">
+            THE RADIAN
+          </span>
+          <span
+            className="font-mono text-[0.42rem] tracking-[0.14em] uppercase text-muted-foreground"
+            style={{ marginTop: "-1px", paddingLeft: "2px" }}
+          >
+            ver. 0.1
+          </span>
         </div>
         <div className="flex gap-2 sm:gap-3 pointer-events-auto items-center">
           <button
@@ -195,34 +417,35 @@ const Index = () => {
           )}
           <button
             onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={
+              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+            }
             title={theme === "dark" ? "Light mode" : "Dark mode"}
             className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-sm border border-border text-muted-foreground transition-all hover:border-primary hover:text-primary"
           >
-            {theme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            {theme === "dark" ? (
+              <Sun className="w-3.5 h-3.5" />
+            ) : (
+              <Moon className="w-3.5 h-3.5" />
+            )}
           </button>
         </div>
       </nav>
 
-      {/* Globe */}
-      <Globe
-        posts={currentPosts}
-        onPostClick={handlePostClick}
-        paused={!!selectedPost}
-        onNeedMore={loadMore}
-        selectedPostId={selectedPost?.id}
-        spinToLon={spinToLon}
-        onVisiblePostsChange={handleVisiblePostsChange}
-      />
-
-      {/* Hint */}
+      {/* ── BOTTOM HINT ─────────────────────────────────────────────── */}
       <div
         className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 font-mono text-[0.5rem] sm:text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground z-50 pointer-events-none whitespace-nowrap"
+        style={{
+          opacity: sceneView === "earth" ? (showHint ? 1 : 0) : 1,
+          transition: "opacity 0.6s ease",
+        }}
       >
-        Drag to explore · Click a log to view
+        {sceneView === "earth"
+          ? "Drag to explore · Click a log to view"
+          : "Drag to rotate · Click a log to view"}
       </div>
 
-      {/* Live count */}
+      {/* ── LIVE COUNT ──────────────────────────────────────────────── */}
       <div className="fixed bottom-6 sm:bottom-8 right-4 sm:right-8 z-50 flex items-center gap-2 pointer-events-none">
         <div
           className="w-[5px] h-[5px] bg-primary rounded-full"
@@ -233,12 +456,15 @@ const Index = () => {
         </span>
       </div>
 
-      {/* Status indicator */}
+      {/* ── STATUS ──────────────────────────────────────────────────── */}
       <div className="fixed bottom-6 sm:bottom-8 left-4 sm:left-8 z-50 flex items-center gap-2 pointer-events-none">
         <div className="flex flex-col gap-1">
           {profile?.username && (
             <div className="flex items-center gap-2">
-              <div className="w-[5px] h-[5px] rounded-full bg-primary" style={{ animation: "lp 2.5s ease-in-out infinite" }} />
+              <div
+                className="w-[5px] h-[5px] rounded-full bg-primary"
+                style={{ animation: "lp 2.5s ease-in-out infinite" }}
+              />
               <span className="font-mono text-[0.48rem] sm:text-[0.56rem] tracking-[0.14em] uppercase hidden sm:inline text-foreground">
                 Signal: {profile.username}
               </span>
@@ -262,22 +488,35 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Post panel (right side) */}
+      {/* ── POST PANEL ──────────────────────────────────────────────── */}
       <PostPanel
-        post={selectedPost}
-        onClose={() => { setSelectedPost(null); setSpinToLon(null); }}
-        onNext={handleNextPost}
-        onPrev={handlePrevPost}
+        post={activePost}
+        onClose={closeActivePost}
+        onNext={sceneView === "earth" ? handleNextPost : undefined}
+        onPrev={sceneView === "earth" ? handlePrevPost : undefined}
       />
 
-      {/* Auth modal */}
+      {/* ── ORBITING MOON BUTTON ────────────────────────────────────── */}
+      {user && profile?.username && (
+        <div
+          style={{
+            opacity: sceneView === "earth" ? 1 : 0,
+            pointerEvents: sceneView === "earth" ? "auto" : "none",
+            transition: "opacity 0.4s ease",
+          }}
+        >
+          <OrbitingMoon onClick={goToMyMoon} label={`@${profile.username}`} />
+        </div>
+      )}
+
+      {/* ── AUTH MODAL ──────────────────────────────────────────────── */}
       <AuthModal
         open={authModal}
         onClose={() => setAuthModal(false)}
         initialTab={authTab}
       />
 
-      {/* Create post sheet (left side) */}
+      {/* ── CREATE POST ─────────────────────────────────────────────── */}
       {user && (
         <CreatePostSheet
           open={createOpen}
@@ -287,12 +526,19 @@ const Index = () => {
         />
       )}
 
-      {/* Orbiting moon — only when signed in, links to your profile */}
-      {user && profile?.username && (
-        <OrbitingMoon onClick={goToMyMoon} label={`@${profile.username}`} />
+      {/* ── EDIT PROFILE MODAL ──────────────────────────────────────── */}
+      {user && profile && (
+        <EditProfileModal
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          profile={profile}
+          onSaved={() => {
+            refreshMyProfile();
+          }}
+        />
       )}
 
-      {/* Landing overlay (first visit + manual reopen) */}
+      {/* ── LANDING OVERLAY ─────────────────────────────────────────── */}
       <LandingOverlay open={landingOpen} onEnter={dismissLanding} />
     </div>
   );

@@ -1,283 +1,324 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Geist+Mono:wght@300;400&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Geist+Mono:wght@300;400&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 36 24% 94%;
-    --foreground: 0 0% 10%;
+    :root {
+        --background: 36 24% 94%;
+        --foreground: 0 0% 10%;
 
-    --card: 36 24% 94%;
-    --card-foreground: 0 0% 10%;
+        --card: 36 24% 94%;
+        --card-foreground: 0 0% 10%;
 
-    --popover: 36 24% 96%;
-    --popover-foreground: 0 0% 10%;
+        --popover: 36 24% 96%;
+        --popover-foreground: 0 0% 10%;
 
-    --primary: 228 100% 55%;
-    --primary-foreground: 0 0% 100%;
+        --primary: 228 100% 55%;
+        --primary-foreground: 0 0% 100%;
 
-    --primary-light: 228 100% 65%;
+        --primary-light: 228 100% 65%;
 
-    --secondary: 36 14% 90%;
-    --secondary-foreground: 0 0% 10%;
+        --secondary: 36 14% 90%;
+        --secondary-foreground: 0 0% 10%;
 
-    --muted: 36 14% 90%;
-    --muted-foreground: 0 0% 53%;
+        --muted: 36 14% 90%;
+        --muted-foreground: 0 0% 53%;
 
-    --accent: 228 100% 55%;
-    --accent-foreground: 0 0% 100%;
+        --accent: 228 100% 55%;
+        --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 10% / 0.09;
-    --input: 0 0% 10% / 0.12;
-    --ring: 228 100% 55%;
+        --border: 0 0% 10% / 0.09;
+        --input: 0 0% 10% / 0.12;
+        --ring: 228 100% 55%;
 
-    --radius: 0.25rem;
+        --radius: 0.25rem;
 
-    --sidebar-background: 36 24% 94%;
-    --sidebar-foreground: 0 0% 10%;
-    --sidebar-primary: 228 100% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 36 14% 90%;
-    --sidebar-accent-foreground: 0 0% 10%;
-    --sidebar-border: 0 0% 10% / 0.09;
-    --sidebar-ring: 228 100% 55%;
+        --sidebar-background: 36 24% 94%;
+        --sidebar-foreground: 0 0% 10%;
+        --sidebar-primary: 228 100% 55%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 36 14% 90%;
+        --sidebar-accent-foreground: 0 0% 10%;
+        --sidebar-border: 0 0% 10% / 0.09;
+        --sidebar-ring: 228 100% 55%;
 
-    /* Background pattern stroke color */
-    --bg-pattern-stroke: 153, 153, 153;
-    --bg-pattern-opacity: 0.15;
-  }
+        /* Main page globe Background pattern stroke color */
+        --bg-pattern-stroke: 153, 153, 153;
+        --bg-pattern-opacity: 0.3;
+    }
 
-  .dark {
-    --background: 0 0% 8%;
-    --foreground: 36 24% 92%;
+    .dark {
+        --background: 0 0% 8%;
+        --foreground: 36 24% 92%;
 
-    --card: 0 0% 10%;
-    --card-foreground: 36 24% 92%;
+        --card: 0 0% 10%;
+        --card-foreground: 36 24% 92%;
 
-    --popover: 0 0% 12%;
-    --popover-foreground: 36 24% 92%;
+        --popover: 0 0% 12%;
+        --popover-foreground: 36 24% 92%;
 
-    --primary: 228 100% 65%;
-    --primary-foreground: 0 0% 8%;
-    --primary-light: 228 100% 75%;
+        --primary: 228 100% 65%;
+        --primary-foreground: 0 0% 8%;
+        --primary-light: 228 100% 75%;
 
-    --secondary: 0 0% 14%;
-    --secondary-foreground: 36 24% 92%;
+        --secondary: 0 0% 14%;
+        --secondary-foreground: 36 24% 92%;
 
-    --muted: 0 0% 14%;
-    --muted-foreground: 36 8% 60%;
+        --muted: 0 0% 14%;
+        --muted-foreground: 36 8% 60%;
 
-    --accent: 228 100% 65%;
-    --accent-foreground: 0 0% 8%;
+        --accent: 228 100% 65%;
+        --accent-foreground: 0 0% 8%;
 
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 0 0% 100%;
+        --destructive: 0 70% 55%;
+        --destructive-foreground: 0 0% 100%;
 
-    --border: 36 24% 92% / 0.1;
-    --input: 36 24% 92% / 0.14;
-    --ring: 228 100% 65%;
+        --border: 36 24% 92% / 0.1;
+        --input: 36 24% 92% / 0.14;
+        --ring: 228 100% 65%;
 
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 36 24% 92%;
-    --sidebar-primary: 228 100% 65%;
-    --sidebar-primary-foreground: 0 0% 8%;
-    --sidebar-accent: 0 0% 14%;
-    --sidebar-accent-foreground: 36 24% 92%;
-    --sidebar-border: 36 24% 92% / 0.1;
-    --sidebar-ring: 228 100% 65%;
+        --sidebar-background: 0 0% 8%;
+        --sidebar-foreground: 36 24% 92%;
+        --sidebar-primary: 228 100% 65%;
+        --sidebar-primary-foreground: 0 0% 8%;
+        --sidebar-accent: 0 0% 14%;
+        --sidebar-accent-foreground: 36 24% 92%;
+        --sidebar-border: 36 24% 92% / 0.1;
+        --sidebar-ring: 228 100% 65%;
 
-    /* Off-white pattern in dark mode */
-    --bg-pattern-stroke: 245, 240, 230;
-    --bg-pattern-opacity: 0.06;
-  }
+        /* Off-white pattern in dark mode */
+        --bg-pattern-stroke: 245, 240, 230;
+        --bg-pattern-opacity: 0.06;
+    }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+    * {
+        @apply border-border;
+    }
 
-  body {
-    @apply bg-background text-foreground;
-    font-family: 'Cormorant Garamond', serif;
-    overflow: hidden;
-  }
+    body {
+        @apply bg-background text-foreground;
+        font-family: "Cormorant Garamond", serif;
+        overflow: hidden;
+    }
 }
 
 /* Noise overlay */
 body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 100;
-  opacity: 0.45;
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.45;
 }
 
 /* Subtle line pattern — color driven by CSS var so it inverts in dark mode */
 body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(to right, rgba(var(--bg-pattern-stroke), var(--bg-pattern-opacity)) 0.5px, transparent 0.5px),
-    linear-gradient(to bottom, rgba(var(--bg-pattern-stroke), var(--bg-pattern-opacity)) 0.5px, transparent 0.5px);
-  background-size: 20px 20px, 20px 20px;
-  background-position: 0 10px, 10px 0;
-  pointer-events: none;
-  z-index: 0;
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+        linear-gradient(
+            to right,
+            rgba(var(--bg-pattern-stroke), var(--bg-pattern-opacity)) 0.5px,
+            transparent 0.5px
+        ),
+        linear-gradient(
+            to bottom,
+            rgba(var(--bg-pattern-stroke), var(--bg-pattern-opacity)) 0.5px,
+            transparent 0.5px
+        );
+    background-size:
+        20px 20px,
+        20px 20px;
+    background-position:
+        0 10px,
+        10px 0;
+    pointer-events: none;
+    z-index: 0;
 }
 
 /* Globe post markers — colors driven by per-post --tag-color CSS variable */
 .post-dot {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-  pointer-events: all;
-  --tag-color: hsl(var(--primary));
+    position: absolute;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    pointer-events: all;
+    --tag-color: hsl(var(--primary));
 }
 
 .post-dot.type-dot {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .post-dot.type-dot::after {
-  content: '';
-  display: block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--tag-color);
-  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--tag-color) 18%, transparent);
-  transition: transform 0.15s;
+    content: "";
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--tag-color);
+    box-shadow: 0 0 0 2.5px
+        color-mix(in srgb, var(--tag-color) 18%, transparent);
+    transition: transform 0.15s;
 }
 .post-dot.type-dot:hover::after {
-  transform: scale(1.35);
+    transform: scale(1.35);
 }
 
 .post-dot.type-photo {
-  background: hsl(var(--popover) / 0.97);
-  border: 1px solid color-mix(in srgb, var(--tag-color) 30%, transparent);
-  border-radius: 6px;
-  padding: 4px 7px 5px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  backdrop-filter: blur(6px);
-  transition: border-color 0.15s, box-shadow 0.15s;
+    background: hsl(var(--popover) / 0.97);
+    border: 1px solid color-mix(in srgb, var(--tag-color) 30%, transparent);
+    border-radius: 6px;
+    padding: 4px 7px 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    backdrop-filter: blur(6px);
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
 }
 .post-dot.type-photo:hover,
 .post-dot.type-photo.post-dot-selected {
-  border-color: var(--tag-color);
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--tag-color) 18%, transparent);
+    border-color: var(--tag-color);
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--tag-color) 18%, transparent);
 }
 .post-dot.type-photo.post-dot-selected {
-  box-shadow: 0 2px 16px color-mix(in srgb, var(--tag-color) 35%, transparent);
+    box-shadow: 0 2px 16px color-mix(in srgb, var(--tag-color) 35%, transparent);
 }
 
 .post-dot.type-audio {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  background: hsl(var(--popover) / 0.97);
-  border: 1px solid color-mix(in srgb, var(--tag-color) 30%, transparent);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding-top: 13px;
-  gap: 5px;
-  backdrop-filter: blur(6px);
-  transition: border-color 0.15s, box-shadow 0.15s;
-  overflow: hidden;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: hsl(var(--popover) / 0.97);
+    border: 1px solid color-mix(in srgb, var(--tag-color) 30%, transparent);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: 13px;
+    gap: 5px;
+    backdrop-filter: blur(6px);
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+    overflow: hidden;
 }
 .post-dot.type-audio:hover,
 .post-dot.type-audio.post-dot-selected {
-  border-color: var(--tag-color);
-  box-shadow: 0 2px 14px color-mix(in srgb, var(--tag-color) 18%, transparent);
+    border-color: var(--tag-color);
+    box-shadow: 0 2px 14px color-mix(in srgb, var(--tag-color) 18%, transparent);
 }
 .post-dot.type-audio.post-dot-selected {
-  box-shadow: 0 2px 18px color-mix(in srgb, var(--tag-color) 35%, transparent);
+    box-shadow: 0 2px 18px color-mix(in srgb, var(--tag-color) 35%, transparent);
 }
 
 /* Pulsating origin dot on the globe surface */
 .globe-origin-dot {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  background: var(--tag-color, hsl(var(--primary)));
-  box-shadow: 0 0 0 0 var(--tag-color, hsl(var(--primary)));
-  animation: originPulse 2.2s ease-out infinite;
-  will-change: transform, box-shadow, opacity;
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    background: var(--tag-color, hsl(var(--primary)));
+    box-shadow: 0 0 0 0 var(--tag-color, hsl(var(--primary)));
+    animation: originPulse 2.2s ease-out infinite;
+    will-change: transform, box-shadow, opacity;
 }
 
 @keyframes originPulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--tag-color, hsl(var(--primary))) 55%, transparent);
-    transform: translate(-50%, -50%) scale(0.85);
-  }
-  70% {
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--tag-color, hsl(var(--primary))) 0%, transparent);
-    transform: translate(-50%, -50%) scale(1.1);
-  }
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--tag-color, hsl(var(--primary))) 0%, transparent);
-    transform: translate(-50%, -50%) scale(0.85);
-  }
+    0% {
+        box-shadow: 0 0 0 0
+            color-mix(
+                in srgb,
+                var(--tag-color, hsl(var(--primary))) 55%,
+                transparent
+            );
+        transform: translate(-50%, -50%) scale(0.85);
+    }
+    70% {
+        box-shadow: 0 0 0 10px
+            color-mix(
+                in srgb,
+                var(--tag-color, hsl(var(--primary))) 0%,
+                transparent
+            );
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+    100% {
+        box-shadow: 0 0 0 0
+            color-mix(
+                in srgb,
+                var(--tag-color, hsl(var(--primary))) 0%,
+                transparent
+            );
+        transform: translate(-50%, -50%) scale(0.85);
+    }
 }
 
 .voice-bars {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  height: 18px;
-  width: 100%;
-  margin-top: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 18px;
+    width: 100%;
+    margin-top: 3px;
 }
 .voice-bar {
-  width: 2.5px;
-  height: 14px;
-  border-radius: 2px;
-  background: var(--tag-color, hsl(var(--primary)));
-  opacity: 0.75;
-  transform-origin: center;
-  animation: barCenter var(--dur) ease-in-out infinite alternate;
+    width: 2.5px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--tag-color, hsl(var(--primary)));
+    opacity: 0.75;
+    transform-origin: center;
+    animation: barCenter var(--dur) ease-in-out infinite alternate;
 }
 
 @keyframes barCenter {
-  from { transform: scaleY(0.12); }
-  to { transform: scaleY(1); }
+    from {
+        transform: scaleY(0.12);
+    }
+    to {
+        transform: scaleY(1);
+    }
 }
 
 @keyframes lp {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
 }
 
 /* Mono text utility */
 .font-mono-ui {
-  font-family: 'Geist Mono', monospace;
+    font-family: "Geist Mono", monospace;
 }
 
 /* Moon audio dot — wider circle to fit three text lines */
 .post-dot.type-audio.moon-audio {
-  width: 68px;
-  height: 68px;
-  padding-top: 0;
-  gap: 3px;
+    width: 68px;
+    height: 68px;
+    padding-top: 0;
+    gap: 3px;
 }

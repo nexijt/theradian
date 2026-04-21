@@ -16,7 +16,7 @@ function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
   return new THREE.Vector3(
     -r * Math.cos(latR) * Math.cos(theta),
     r * Math.sin(latR),
-    r * Math.cos(latR) * Math.sin(theta)
+    r * Math.cos(latR) * Math.sin(theta),
   );
 }
 
@@ -26,7 +26,7 @@ function craterCircle(
   lon: number,
   angularRadiusDeg: number,
   r: number,
-  segments = 48
+  segments = 48,
 ): THREE.Vector3[] {
   const angR = angularRadiusDeg * (Math.PI / 180);
   const center = projectPoint(lat, lon, 1.0).normalize();
@@ -149,15 +149,22 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
     const dotsContainer = dotsRef.current!;
     const ctx2d = overlayCanvas.getContext("2d")!;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: true,
+    });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     const updateBg = () => {
       const dark = document.documentElement.classList.contains("dark");
-      renderer.setClearColor(dark ? 0x1a1c20 : 0xd8dde6, 0.5);
+      renderer.setClearColor(dark ? 0x141414 : 0xf5f0e8, 0.5);
     };
     updateBg();
     const themeObs = new MutationObserver(updateBg);
-    themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    themeObs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
@@ -167,27 +174,48 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
     // Depth mask — occludes geometry behind the moon surface
     const solidMesh = new THREE.Mesh(
       new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
-      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true })
+      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }),
     );
 
-    // Wireframe mesh at 50% opacity — matches Globe's wire mesh approach
+    // Visible surface at 30% opacity — dark lunar grey
+    const surfaceMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(RADIUS * 0.995, 48, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0x12151a,
+        transparent: true,
+        opacity: 0.3,
+        depthWrite: false,
+      }),
+    );
+
+    // Wireframe mesh matches Globe's wire mesh approach
     const wireMesh = new THREE.LineSegments(
-      new THREE.WireframeGeometry(new THREE.SphereGeometry(RADIUS * 1.001, 36, 24)),
-      new THREE.LineBasicMaterial({ color: MOON_COLOR, transparent: true, opacity: 0.18 })
+      new THREE.WireframeGeometry(
+        new THREE.SphereGeometry(RADIUS * 1.001, 36, 24),
+      ),
+      new THREE.LineBasicMaterial({
+        color: MOON_COLOR,
+        transparent: true,
+        opacity: 0.2,
+      }),
     );
 
     // 3D crater outlines — uniform dark-grey palette, brightness contrast creates depth
     const rimMat = new THREE.LineBasicMaterial({
-      color: 0x737d8c,       // medium-dark grey — raised rim, slightly brighter
-      transparent: true, opacity: 0.80, linewidth: 1.2,
+      color: 0x737d8c, // medium-dark grey — raised rim, slightly brighter
+      transparent: true,
+      opacity: 0.8,
+      linewidth: 1.2,
     });
     const bowlMat = new THREE.LineBasicMaterial({
-      color: 0x2e3340,       // deep dark grey — shadowed bowl interior
-      transparent: true, opacity: 0.65,
+      color: 0x2e3340, // deep dark grey — shadowed bowl interior
+      transparent: true,
+      opacity: 0.65,
     });
     const peakMat = new THREE.LineBasicMaterial({
-      color: 0x5c6470,       // dark grey mid-tone — central peak
-      transparent: true, opacity: 0.55,
+      color: 0x5c6470, // dark grey mid-tone — central peak
+      transparent: true,
+      opacity: 0.55,
     });
 
     const craterGroup = new THREE.Group();
@@ -196,24 +224,46 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
 
       // Outer rim — slightly raised above the sphere surface
       const rimPts = craterCircle(lat, lon, angR, RADIUS * 1.004, segments);
-      craterGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rimPts), rimMat));
+      craterGroup.add(
+        new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(rimPts),
+          rimMat,
+        ),
+      );
 
       // Inner bowl — slightly recessed, dark to suggest shadow depth
       if (angR >= 1.0) {
         const innerSegs = Math.max(24, Math.floor(segments * 0.65));
-        const bowlPts = craterCircle(lat, lon, angR * 0.58, RADIUS * 0.999, innerSegs);
-        craterGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(bowlPts), bowlMat));
+        const bowlPts = craterCircle(
+          lat,
+          lon,
+          angR * 0.58,
+          RADIUS * 0.999,
+          innerSegs,
+        );
+        craterGroup.add(
+          new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(bowlPts),
+            bowlMat,
+          ),
+        );
       }
 
       // Central peak — only large craters have this feature
       if (angR >= 4.0) {
         const peakPts = craterCircle(lat, lon, angR * 0.12, RADIUS * 1.002, 20);
-        craterGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(peakPts), peakMat));
+        craterGroup.add(
+          new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints(peakPts),
+            peakMat,
+          ),
+        );
       }
     });
 
     const moonGroup = new THREE.Group();
-    moonGroup.add(solidMesh, wireMesh, craterGroup);
+    moonGroup.add(solidMesh, surfaceMesh, wireMesh, craterGroup);
+    moonGroup.rotation.x = 0.35;
     scene.add(moonGroup);
 
     function resize() {
@@ -260,10 +310,13 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
         else return;
       }
       if (drag.dragAxis === "h") {
-        drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
+        drag.rotVel = Math.max(-0.1, Math.min(0.1, dx * 0.008));
         moonGroup.rotation.y += drag.rotVel;
       } else {
-        moonGroup.rotation.x = Math.max(-0.35, Math.min(0.35, moonGroup.rotation.x + dy * 0.005));
+        moonGroup.rotation.x = Math.max(
+          -0.35,
+          Math.min(0.35, moonGroup.rotation.x + dy * 0.005),
+        );
       }
       drag.prevX = e.clientX;
       drag.prevY = e.clientY;
@@ -272,7 +325,9 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
       if (!drag.isDragging) return;
       drag.isDragging = false;
       drag.dragAxis = null;
-      drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
+      drag.arTimer = setTimeout(() => {
+        drag.autoRotate = true;
+      }, 3500);
     }
     function onTouchStart(e: TouchEvent) {
       if (e.touches.length !== 1) return;
@@ -293,10 +348,13 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
         else return;
       }
       if (drag.dragAxis === "h") {
-        drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
+        drag.rotVel = Math.max(-0.1, Math.min(0.1, dx * 0.008));
         moonGroup.rotation.y += drag.rotVel;
       } else {
-        moonGroup.rotation.x = Math.max(-0.35, Math.min(0.35, moonGroup.rotation.x + dy * 0.005));
+        moonGroup.rotation.x = Math.max(
+          -0.35,
+          Math.min(0.35, moonGroup.rotation.x + dy * 0.005),
+        );
       }
       drag.prevX = e.touches[0].clientX;
       drag.prevY = e.touches[0].clientY;
@@ -304,7 +362,9 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
     function onTouchEnd() {
       drag.isDragging = false;
       drag.dragAxis = null;
-      drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
+      drag.arTimer = setTimeout(() => {
+        drag.autoRotate = true;
+      }, 3500);
     }
 
     canvas.addEventListener("mousedown", onMouseDown);
@@ -326,7 +386,7 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
           color: tagColor.hexNum,
           transparent: true,
           opacity: 0,
-        })
+        }),
       );
       dot.position.copy(localPos);
       moonGroup.add(dot);
@@ -423,7 +483,7 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
         const eased = easeInOut(prog);
         (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(
           0.45,
-          prog * 1.5
+          prog * 1.5,
         );
 
         const originAlpha = Math.max(0, Math.min(1, (facing + 0.05) / 0.25));
@@ -460,7 +520,8 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
         const dy = p.lagY! - sp.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const maxDist = LINE_MAX * 1.6;
-        let ex = p.lagX, ey = p.lagY!;
+        let ex = p.lagX,
+          ey = p.lagY!;
         if (dist > maxDist) {
           ex = sp.x + (dx / dist) * maxDist;
           ey = sp.y + (dy / dist) * maxDist;
@@ -496,7 +557,7 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
 
       // Overlap avoidance — push overlapping labels apart
       const visible = postObjects.filter(
-        (p) => p.progress > 0 && p.lagX !== null
+        (p) => p.progress > 0 && p.lagX !== null,
       );
       for (let i = 0; i < visible.length; i++) {
         const a = visible[i];
@@ -569,8 +630,15 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
 
   return (
     <div className="relative w-full h-full">
-      <canvas ref={canvasRef} className="w-full h-full block" style={{ cursor: "grab" }} />
-      <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none" />
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full block"
+        style={{ cursor: "grab" }}
+      />
+      <canvas
+        ref={overlayRef}
+        className="absolute inset-0 pointer-events-none"
+      />
       <div
         ref={dotsRef}
         className="absolute inset-0 pointer-events-none [&>*]:pointer-events-auto"

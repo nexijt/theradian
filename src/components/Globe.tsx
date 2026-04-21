@@ -1,5 +1,10 @@
 import React, { useRef, useEffect, useCallback } from "react";
 import * as THREE from "three";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { Wireframe } from "three/examples/jsm/lines/Wireframe.js";
+import { WireframeGeometry2 } from "three/examples/jsm/lines/WireframeGeometry2.js";
 import { CONTINENT_OUTLINES } from "@/lib/globe-data";
 import type { FeedPost } from "@/hooks/useFeed";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -20,7 +25,7 @@ function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
   return new THREE.Vector3(
     -r * Math.cos(latR) * Math.cos(theta),
     r * Math.sin(latR),
-    r * Math.cos(latR) * Math.sin(theta)
+    r * Math.cos(latR) * Math.sin(theta),
   );
 }
 
@@ -69,7 +74,15 @@ interface GlobeProps {
   onVisiblePostsChange?: (visiblePosts: FeedPost[]) => void;
 }
 
-export default function Globe({ posts, onPostClick, paused, onNeedMore, selectedPostId, spinToLon, onVisiblePostsChange }: GlobeProps) {
+export default function Globe({
+  posts,
+  onPostClick,
+  paused,
+  onNeedMore,
+  selectedPostId,
+  spinToLon,
+  onVisiblePostsChange,
+}: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<HTMLDivElement>(null);
@@ -134,7 +147,11 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
     const overlayCanvas = overlayRef.current!;
     const ctx2d = overlayCanvas.getContext("2d")!;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: true,
+    });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     const updateBg = () => {
       const dark = document.documentElement.classList.contains("dark");
@@ -142,29 +159,64 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
     };
     updateBg();
     const themeObs = new MutationObserver(updateBg);
-    themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    themeObs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(42, W() / H(), 0.1, 1000);
     camera.position.set(0, 0, 3.8);
     camera.lookAt(0, 0, 0);
 
+    // Depth mask — writes z-buffer, invisible
     const solidMesh = new THREE.Mesh(
       new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
-      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true })
+      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }),
     );
 
-    const wireMesh = new THREE.LineSegments(
-      new THREE.WireframeGeometry(new THREE.SphereGeometry(RADIUS * 1.001, 36, 24)),
-      new THREE.LineBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0.18 })
+    // Visible surface at 30% opacity — deep navy/ocean blue
+    const surfaceMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(RADIUS * 0.995, 48, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0x071428,
+        transparent: true,
+        opacity: 0.3,
+        depthWrite: false,
+      }),
     );
 
-    const outlineMat = new THREE.LineBasicMaterial({ color: 0x1a4aff, transparent: true, opacity: 0.864, linewidth: 1.2 });
+    // Thick wireframe lattice using Line2 (WebGL-compatible thick lines)
+    const wireMat = new LineMaterial({
+      color: 0x1a4aff,
+      linewidth: 0.4,
+      transparent: true,
+      opacity: 0.26,
+      resolution: new THREE.Vector2(W(), H()),
+    });
+    const wireMesh = new Wireframe(
+      new WireframeGeometry2(new THREE.SphereGeometry(RADIUS * 1.001, 36, 24)),
+      wireMat,
+    );
+    wireMesh.computeLineDistances();
+
+    // Thick continent outlines using Line2
+    const outlineMat = new LineMaterial({
+      color: 0x1a4aff,
+      linewidth: 0.8,
+      transparent: true,
+      opacity: 0.864,
+      resolution: new THREE.Vector2(W(), H()),
+    });
     const outlineGroup = new THREE.Group();
     CONTINENT_OUTLINES.forEach((coords) => {
-      const pts = coords.map(([lo, la]) => projectPoint(la, lo, RADIUS * 1.003));
+      const pts = coords.map(([lo, la]) =>
+        projectPoint(la, lo, RADIUS * 1.003),
+      );
       pts.push(pts[0].clone());
-      outlineGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), outlineMat));
+      const geo = new LineGeometry();
+      geo.setPositions(pts.flatMap((v) => [v.x, v.y, v.z]));
+      outlineGroup.add(new Line2(geo, outlineMat));
     });
 
     const spinGroup = new THREE.Group();
@@ -173,10 +225,19 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
     const tiltGroup = new THREE.Group();
     tiltGroup.add(spinGroup);
     tiltGroup.rotation.x = 0.35;
-    tiltGroup.scale.setScalar(window.innerWidth < 768 ? MOBILE_SCALE : DESKTOP_SCALE);
+    tiltGroup.scale.setScalar(
+      window.innerWidth < 768 ? MOBILE_SCALE : DESKTOP_SCALE,
+    );
     scene.add(tiltGroup);
 
-    sceneRef.current = { renderer, scene, camera, spinGroup, tiltGroup, postObjects: [] };
+    sceneRef.current = {
+      renderer,
+      scene,
+      camera,
+      spinGroup,
+      tiltGroup,
+      postObjects: [],
+    };
 
     function resize() {
       renderer.setSize(W(), H());
@@ -184,6 +245,8 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       camera.updateProjectionMatrix();
       overlayCanvas.width = W();
       overlayCanvas.height = H();
+      wireMat.resolution.set(W(), H());
+      outlineMat.resolution.set(W(), H());
     }
     window.addEventListener("resize", resize);
     resize();
@@ -213,7 +276,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       }
 
       if (drag.dragAxis === "h") {
-        drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
+        drag.rotVel = Math.max(-0.1, Math.min(0.1, dx * 0.008));
         spinGroup.rotation.y += drag.rotVel;
       } else {
         const newTilt = tiltGroup.rotation.x + dy * 0.005;
@@ -227,7 +290,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       if (!drag.isDragging) return;
       drag.isDragging = false;
       drag.dragAxis = null;
-      drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
+      drag.arTimer = setTimeout(() => {
+        drag.autoRotate = true;
+      }, 3500);
     }
     function getPinchDist(e: TouchEvent) {
       const t = e.touches;
@@ -266,7 +331,7 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       }
 
       if (drag.dragAxis === "h") {
-        drag.rotVel = Math.max(-0.10, Math.min(0.10, dx * 0.008));
+        drag.rotVel = Math.max(-0.1, Math.min(0.1, dx * 0.008));
         spinGroup.rotation.y += drag.rotVel;
       } else {
         const newTilt = tiltGroup.rotation.x + dy * 0.005;
@@ -280,7 +345,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       drag.isPinching = false;
       drag.isDragging = false;
       drag.dragAxis = null;
-      drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
+      drag.arTimer = setTimeout(() => {
+        drag.autoRotate = true;
+      }, 3500);
     }
 
     canvas.addEventListener("mousedown", onMouseDown);
@@ -324,14 +391,17 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       }
 
       if (Math.abs(rotAccumRef.current) >= ROT_PER_SHIFT) {
-        const shifts = Math.floor(Math.abs(rotAccumRef.current) / ROT_PER_SHIFT);
+        const shifts = Math.floor(
+          Math.abs(rotAccumRef.current) / ROT_PER_SHIFT,
+        );
         if (rotAccumRef.current > 0) {
           windowCursorRef.current -= shifts;
         } else {
           windowCursorRef.current += shifts;
         }
         rotAccumRef.current = rotAccumRef.current % ROT_PER_SHIFT;
-        windowCursorRef.current = ((windowCursorRef.current % totalPosts) + totalPosts) % totalPosts;
+        windowCursorRef.current =
+          ((windowCursorRef.current % totalPosts) + totalPosts) % totalPosts;
 
         if (windowCursorRef.current + WINDOW_SIZE >= totalPosts - 5) {
           onNeedMoreRef.current?.();
@@ -353,8 +423,8 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
       // Report visible (non-hidden, front-facing) posts to parent
       const visiblePosts = s.postObjects
-        .filter(p => !p.isHidden && p.facing > -0.1)
-        .map(p => p.data);
+        .filter((p) => !p.isHidden && p.facing > -0.1)
+        .map((p) => p.data);
       onVisiblePostsChangeRef.current?.(visiblePosts);
 
       s.postObjects.forEach((p) => {
@@ -394,7 +464,10 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
         const sp = toScreen(_wPos);
         const eased = easeInOut(prog);
-        (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(0.45, prog * 1.5);
+        (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(
+          0.45,
+          prog * 1.5,
+        );
 
         // Position the pulsating origin dot at the projected post location on the globe surface
         const originAlpha = Math.max(0, Math.min(1, (facing + 0.05) / 0.25));
@@ -408,7 +481,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         }
 
         const normalWorld = _nrm.clone();
-        const tipWorld = _wPos.clone().add(normalWorld.clone().multiplyScalar(0.18));
+        const tipWorld = _wPos
+          .clone()
+          .add(normalWorld.clone().multiplyScalar(0.18));
         const spTip = toScreen(tipWorld);
         let ndx = spTip.x - sp.x;
         let ndy = spTip.y - sp.y;
@@ -419,7 +494,10 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         const targetX = sp.x + ndx * LINE_MAX * p.lineLengthMult;
         const targetY = sp.y + ndy * LINE_MAX * p.lineLengthMult;
 
-        if (p.lagX === null) { p.lagX = sp.x; p.lagY = sp.y - 10; }
+        if (p.lagX === null) {
+          p.lagX = sp.x;
+          p.lagY = sp.y - 10;
+        }
         p.lagX += (targetX - p.lagX) * LAG_SPEED;
         p.lagY! += (targetY - p.lagY!) * LAG_SPEED;
 
@@ -427,7 +505,8 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         const dy = p.lagY! - sp.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const maxDist = LINE_MAX * 1.6;
-        let ex = p.lagX, ey = p.lagY!;
+        let ex = p.lagX,
+          ey = p.lagY!;
         if (dist > maxDist) {
           ex = sp.x + (dx / dist) * maxDist;
           ey = sp.y + (dy / dist) * maxDist;
@@ -473,7 +552,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
         }
       });
 
-      const visible = s.postObjects.filter(p => p.progress > 0 && p.lagX !== null);
+      const visible = s.postObjects.filter(
+        (p) => p.progress > 0 && p.lagX !== null,
+      );
       for (let i = 0; i < visible.length; i++) {
         const a = visible[i];
         for (let j = i + 1; j < visible.length; j++) {
@@ -504,7 +585,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       // Handle spinToLon — smoothly rotate to target longitude
       if (spinToLonRef.current !== null) {
         // Map longitude to the exact Y-rotation that puts that longitude at front-center
-        const targetRotY = getRotationForCenteredLongitude(spinToLonRef.current);
+        const targetRotY = getRotationForCenteredLongitude(
+          spinToLonRef.current,
+        );
         const diff = normalizeAngle(targetRotY - spinGroup.rotation.y);
 
         if (Math.abs(diff) < 0.005) {
@@ -516,7 +599,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
 
         drag.autoRotate = false;
         if (drag.arTimer) clearTimeout(drag.arTimer);
-        drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
+        drag.arTimer = setTimeout(() => {
+          drag.autoRotate = true;
+        }, 3500);
       } else if (!pausedRef.current && drag.autoRotate && !drag.isDragging) {
         spinGroup.rotation.y -= 0.0009;
       } else if (!pausedRef.current && !drag.isDragging) {
@@ -561,8 +646,9 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       ctx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
 
-    const sorted = [...posts].sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    const sorted = [...posts].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
 
     s.postObjects = sorted.map((post, dateIndex) => {
@@ -570,7 +656,11 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       const tagColor = getTagColor(post.tag, post.type);
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.007, 8, 8),
-        new THREE.MeshBasicMaterial({ color: tagColor.hexNum, transparent: true, opacity: 0 })
+        new THREE.MeshBasicMaterial({
+          color: tagColor.hexNum,
+          transparent: true,
+          opacity: 0,
+        }),
       );
       dot.position.copy(localPos);
       s.spinGroup.add(dot);
@@ -584,7 +674,8 @@ export default function Globe({ posts, onPostClick, paused, onNeedMore, selected
       const normalizedTag = normalizeTag(post.tag, post.type);
       const tagLabel = `[${normalizedTag}]`;
       if (post.type === "photo") {
-        const snippet = (post.caption || "").split(" ").slice(0, 4).join(" ") + "…";
+        const snippet =
+          (post.caption || "").split(" ").slice(0, 4).join(" ") + "…";
         el.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:${tagColor.hex};text-align:center">${tagLabel}</div><div style="font-size:0.66rem;font-style:italic;color:hsl(var(--muted-foreground));white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${snippet}</div>`;
       } else if (post.type === "audio") {
         const bars = Array.from({ length: 7 }, () => {
