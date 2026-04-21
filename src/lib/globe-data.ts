@@ -1,4 +1,4 @@
-import worldAtlas from "world-atlas/countries-50m.json";
+import worldAtlas from "world-atlas/countries-110m.json";
 import { feature } from "topojson-client";
 import type { Topology } from "topojson-specification";
 
@@ -30,6 +30,36 @@ function buildContinentOutlines(): [number, number][][] {
 
 // Computed once at module load — no runtime cost per render
 export const CONTINENT_OUTLINES: [number, number][][] = buildContinentOutlines();
+
+export interface GlobeLabel {
+  name: string;
+  lat: number;
+  lon: number;
+  type: "ocean" | "country";
+  size: "sm" | "md" | "lg";
+}
+
+export const GLOBE_LABELS: GlobeLabel[] = [
+  // Oceans — large italic
+  { name: "Pacific Ocean",   lat:  10, lon: -155, type: "ocean",   size: "lg" },
+  { name: "Atlantic Ocean",  lat:  10, lon:  -42, type: "ocean",   size: "lg" },
+  { name: "Indian Ocean",    lat: -22, lon:   75, type: "ocean",   size: "lg" },
+  { name: "Arctic Ocean",    lat:  83, lon:    0, type: "ocean",   size: "md" },
+  { name: "Southern Ocean",  lat: -58, lon:    0, type: "ocean",   size: "md" },
+  // Countries — regular weight
+  { name: "Russia",          lat:  62, lon:  100, type: "country", size: "md" },
+  { name: "Canada",          lat:  60, lon: -114, type: "country", size: "md" },
+  { name: "United States",   lat:  39, lon:  -98, type: "country", size: "md" },
+  { name: "Brazil",          lat: -10, lon:  -52, type: "country", size: "md" },
+  { name: "Australia",       lat: -25, lon:  134, type: "country", size: "md" },
+  { name: "China",           lat:  35, lon:  103, type: "country", size: "md" },
+  { name: "India",           lat:  22, lon:   78, type: "country", size: "sm" },
+  { name: "Greenland",       lat:  74, lon:  -42, type: "country", size: "sm" },
+  { name: "Argentina",       lat: -35, lon:  -64, type: "country", size: "sm" },
+  { name: "Kazakhstan",      lat:  48, lon:   67, type: "country", size: "sm" },
+  { name: "Mexico",          lat:  23, lon: -102, type: "country", size: "sm" },
+  { name: "Saudi Arabia",    lat:  24, lon:   45, type: "country", size: "sm" },
+];
 
 // Fallback posts shown when the database is empty or unreachable
 export const MOCK_POSTS = [

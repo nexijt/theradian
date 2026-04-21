@@ -5,7 +5,7 @@ import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { Wireframe } from "three/examples/jsm/lines/Wireframe.js";
 import { WireframeGeometry2 } from "three/examples/jsm/lines/WireframeGeometry2.js";
-import { CONTINENT_OUTLINES } from "@/lib/globe-data";
+import { CONTINENT_OUTLINES, GLOBE_LABELS } from "@/lib/globe-data";
 import type { FeedPost } from "@/hooks/useFeed";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getTagColor, normalizeTag } from "@/lib/tag-colors";
@@ -146,6 +146,7 @@ export default function Globe({
     const canvas = canvasRef.current!;
     const overlayCanvas = overlayRef.current!;
     const ctx2d = overlayCanvas.getContext("2d")!;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
 
     const renderer = new THREE.WebGLRenderer({
       canvas,
@@ -220,7 +221,7 @@ export default function Globe({
     });
 
     const spinGroup = new THREE.Group();
-    spinGroup.add(solidMesh, wireMesh, outlineGroup);
+    spinGroup.add(solidMesh, surfaceMesh, wireMesh, outlineGroup);
 
     const tiltGroup = new THREE.Group();
     tiltGroup.add(spinGroup);
@@ -243,8 +244,8 @@ export default function Globe({
       renderer.setSize(W(), H());
       camera.aspect = W() / H();
       camera.updateProjectionMatrix();
-      overlayCanvas.width = W();
-      overlayCanvas.height = H();
+      overlayCanvas.width = Math.round(W() * dpr);
+      overlayCanvas.height = Math.round(H() * dpr);
       wireMat.resolution.set(W(), H());
       outlineMat.resolution.set(W(), H());
     }
@@ -370,12 +371,119 @@ export default function Globe({
     const _nrm = new THREE.Vector3();
     const _mat3 = new THREE.Matrix3();
     const _toCam = new THREE.Vector3();
+    // Scratch vectors for curved label rendering (avoids per-frame allocations)
+    const _cv1 = new THREE.Vector3();
+    const _cv2 = new THREE.Vector3();
+    const _cv3 = new THREE.Vector3();
+
+    /** Write a lat/lon sphere point into `out` without allocating */
+    function toSphere(lat: number, lon: number, r: number, out: THREE.Vector3) {
+      const latR = lat * (Math.PI / 180);
+      const theta = (lon + 180) * (Math.PI / 180);
+      out.set(
+        -r * Math.cos(latR) * Math.cos(theta),
+        r * Math.sin(latR),
+        r * Math.cos(latR) * Math.sin(theta),
+      );
+    }
+
+    // ── Globe labels (canvas curved text) ──────────────────────────
+    const labelObjects = GLOBE_LABELS.map(({ name, lat, lon, type, size }) => ({
+      localPos: projectPoint(lat, lon, RADIUS),
+      name,
+      lat,
+      lon,
+      type,
+      size,
+      prog: 0,
+      maxOpacity: type === "ocean" ? 0.52 : 0.42,
+    }));
+
+    function updateLabels() {
+      _mat3.getNormalMatrix(spinGroup.matrixWorld);
+      const dark = document.documentElement.classList.contains("dark");
+
+      for (const lbl of labelObjects) {
+        // Facing / fade
+        _wPos.copy(lbl.localPos).applyMatrix4(spinGroup.matrixWorld);
+        _nrm.copy(lbl.localPos).normalize().applyMatrix3(_mat3).normalize();
+        _toCam.copy(camera.position).sub(_wPos).normalize();
+        const facing = _toCam.dot(_nrm);
+        const target = Math.max(0, Math.min(1, (facing - 0.08) / 0.28));
+        lbl.prog += (target - lbl.prog) * 0.04;
+        if (lbl.prog < 0.01) continue;
+
+        const opacity = lbl.prog * lbl.maxOpacity;
+        const fontSize = lbl.size === "lg" ? 12 : lbl.size === "md" ? 9 : 7;
+        const letterSpacing = fontSize * (lbl.type === "ocean" ? 0.24 : 0.16);
+        ctx2d.font = `300 ${lbl.type === "ocean" ? "italic " : ""}${fontSize}px 'Cormorant Garamond', serif`;
+
+        // Measure each character
+        const chars = lbl.name.split("");
+        const widths = chars.map((c) => ctx2d.measureText(c).width);
+        const totalWidth =
+          widths.reduce((s, w) => s + w, 0) +
+          letterSpacing * Math.max(0, chars.length - 1);
+
+        // Pixels-per-degree along this latitude (sample ±3° around label centre)
+        const delta = 3;
+        toSphere(lbl.lat, lbl.lon - delta, RADIUS, _cv1);
+        _cv1.applyMatrix4(spinGroup.matrixWorld);
+        const l2D = toScreen(_cv1);
+        toSphere(lbl.lat, lbl.lon + delta, RADIUS, _cv2);
+        _cv2.applyMatrix4(spinGroup.matrixWorld);
+        const r2D = toScreen(_cv2);
+        const pxPerDeg =
+          Math.sqrt((r2D.x - l2D.x) ** 2 + (r2D.y - l2D.y) ** 2) /
+          (2 * delta);
+        if (pxPerDeg < 1) continue;
+
+        // Draw each character at its sphere-projected position with local rotation
+        ctx2d.fillStyle = dark
+          ? `rgba(255,255,255,${opacity.toFixed(3)})`
+          : `rgba(20,20,14,${opacity.toFixed(3)})`;
+        ctx2d.textBaseline = "middle";
+
+        let xOff = -totalWidth / 2;
+        for (let i = 0; i < chars.length; i++) {
+          const w = widths[i];
+          const charCenter = xOff + w / 2;
+          const charLon = lbl.lon + charCenter / pxPerDeg;
+
+          // Character screen position
+          toSphere(lbl.lat, charLon, RADIUS, _cv1);
+          _cv1.applyMatrix4(spinGroup.matrixWorld);
+          const pos2D = toScreen(_cv1);
+
+          // Local tangent at this character (sample ±0.5°)
+          const dd = 0.5;
+          toSphere(lbl.lat, charLon - dd, RADIUS, _cv2);
+          _cv2.applyMatrix4(spinGroup.matrixWorld);
+          const tL = toScreen(_cv2);
+          toSphere(lbl.lat, charLon + dd, RADIUS, _cv3);
+          _cv3.applyMatrix4(spinGroup.matrixWorld);
+          const tR = toScreen(_cv3);
+          const charAngle = Math.atan2(tR.y - tL.y, tR.x - tL.x);
+
+          ctx2d.save();
+          ctx2d.translate(pos2D.x, pos2D.y);
+          ctx2d.rotate(charAngle);
+          ctx2d.fillText(chars[i], 0, 0);
+          ctx2d.restore();
+
+          xOff += w + letterSpacing;
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────────────
 
     const ROT_PER_SHIFT = 0.5;
 
     function drawOverlay() {
       const s = sceneRef.current;
       if (!s) return;
+      // Apply DPR scaling so all drawing coords stay in CSS pixels but render crisp on retina
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx2d.clearRect(0, 0, W(), H());
       _mat3.getNormalMatrix(spinGroup.matrixWorld);
 
@@ -610,6 +718,7 @@ export default function Globe({
       }
       renderer.render(scene, camera);
       drawOverlay();
+      updateLabels();
     }
     animate();
 
@@ -737,7 +846,7 @@ export default function Globe({
       />
       <canvas
         ref={overlayRef}
-        className="fixed inset-0 pointer-events-none z-[5]"
+        className="fixed inset-0 w-full h-full pointer-events-none z-[5]"
       />
       <div ref={dotsRef} className="fixed inset-0 pointer-events-none z-[10]" />
     </>
