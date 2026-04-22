@@ -2,12 +2,9 @@ import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 import type { FeedPost } from "@/hooks/useFeed";
 import { getTagColor, normalizeTag } from "@/lib/tag-colors";
+import { RADIUS, MOON_EASE as EASE, MOON_LAG_SPEED as LAG_SPEED, MOON_OVERLAP_THRESH as OVERLAP_THRESH } from "@/lib/scene-constants";
 
-const RADIUS = 1.0;
 const LINE_MAX = 75;
-const EASE = 0.07;
-const LAG_SPEED = 0.05;
-const OVERLAP_THRESH = 52;
 const MOON_COLOR = 0x4a5060; // dark slate grey
 
 function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {

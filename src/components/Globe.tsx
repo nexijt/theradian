@@ -9,12 +9,9 @@ import { CONTINENT_OUTLINES, GLOBE_LABELS } from "@/lib/globe-data";
 import type { FeedPost } from "@/hooks/useFeed";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getTagColor, normalizeTag } from "@/lib/tag-colors";
+import { RADIUS, GLOBE_EASE as EASE, GLOBE_LAG_SPEED as LAG_SPEED, GLOBE_OVERLAP_THRESH as OVERLAP_THRESH } from "@/lib/scene-constants";
 
-const RADIUS = 1.0;
 const LINE_MAX = 80;
-const EASE = 0.065;
-const LAG_SPEED = 0.045;
-const OVERLAP_THRESH = 55;
 const WINDOW_SIZE = 10;
 const MOBILE_SCALE = 0.67;
 const DESKTOP_SCALE = 1.1;
