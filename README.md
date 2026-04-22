@@ -1,6 +1,6 @@
 # The Radian
 
-A social logging app where users pin daily moments — photo or audio — to exact coordinates on an interactive 3D globe. Every post is a point in space and time.
+A social logging app for hobbyists where users pin daily moments — photo or audio — to exact coordinates on an interactive 3D globe. Every post is a point in space and time.
 
 ![Globe view](https://raw.githubusercontent.com/nexijt/theradian/main/public/og-preview.png)
 
@@ -76,12 +76,4 @@ cp .env.example .env
 # 4. Start the dev server
 npm run dev
 # → http://localhost:8080
-```
-
-Other commands:
-
-```bash
-npm run build   # Production build
-npm run lint    # ESLint
-npm run test    # Run tests (Vitest)
 ```
