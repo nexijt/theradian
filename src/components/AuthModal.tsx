@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { signIn, signUp, requestPasswordReset, validateUsername } from "@/lib/auth";
+import { signIn, signUp, requestPasswordReset, validateUsername, resendVerification } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuthModalProps {
@@ -8,7 +8,7 @@ interface AuthModalProps {
   initialTab?: "login" | "register";
 }
 
-type Mode = "login" | "register" | "forgot";
+type Mode = "login" | "register" | "forgot" | "verify-sent";
 
 export default function AuthModal({ open, onClose, initialTab = "login" }: AuthModalProps) {
   const [mode, setMode] = useState<Mode>(initialTab);
@@ -17,6 +17,7 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sentToEmail, setSentToEmail] = useState("");
   const { toast } = useToast();
 
   if (!open) return null;
@@ -24,6 +25,18 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
   const reset = () => { setEmail(""); setIdentifier(""); setUsername(""); setPassword(""); };
 
   const switchMode = (m: Mode) => { setMode(m); reset(); };
+
+  const handleResend = async () => {
+    if (!sentToEmail) return;
+    setLoading(true);
+    try {
+      await resendVerification(sentToEmail);
+      toast({ title: "Verification email resent" });
+    } catch (err: any) {
+      toast({ title: err.message || "Could not resend", variant: "destructive" });
+    }
+    setLoading(false);
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -42,12 +55,8 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
         if (password.length < 6) throw new Error("Password must be at least 6 characters");
 
         await signUp(email, username, password);
-        toast({
-          title: "Check your email",
-          description: "Click the link we sent to verify your account.",
-        });
-        onClose();
-        reset();
+        setSentToEmail(email.trim());
+        setMode("verify-sent");
       } else {
         if (!email.trim() || !email.includes("@")) throw new Error("Enter the email you registered with");
         await requestPasswordReset(email);
@@ -62,10 +71,13 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
 
   const title =
     mode === "login" ? "Welcome back" :
-    mode === "register" ? "Join RADIAN" : "Reset password";
+    mode === "register" ? "Join RADIAN" :
+    mode === "verify-sent" ? "Check your inbox" : "Reset password";
   const subtitle =
     mode === "login" ? "Sign in to your account" :
-    mode === "register" ? "Start posting to the globe" : "We'll email you a reset link";
+    mode === "register" ? "Start posting to the globe" :
+    mode === "verify-sent" ? "Verify your email to start posting" :
+    "We'll email you a reset link";
 
   return (
     <div
@@ -79,7 +91,7 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
           {subtitle}
         </p>
 
-        {mode !== "forgot" && (
+        {mode !== "forgot" && mode !== "verify-sent" && (
           <div className="flex mb-7 border-b border-border">
             <button
               className={`pb-2 mr-6 font-mono text-[0.6rem] tracking-[0.12em] uppercase border-b-2 -mb-px transition-all ${
@@ -100,6 +112,41 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
           </div>
         )}
 
+        {mode === "verify-sent" && (
+          <div className="space-y-5">
+            <p className="font-serif text-base text-foreground/85 leading-relaxed">
+              We sent a verification link to{" "}
+              <span className="italic text-primary">{sentToEmail}</span>. Click it
+              to activate your account, then come back and sign in.
+            </p>
+            <div className="flex gap-2.5 justify-between items-center">
+              <button
+                onClick={handleResend}
+                disabled={loading}
+                className="font-mono text-[0.55rem] tracking-[0.12em] uppercase text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+              >
+                {loading ? "Sending…" : "Resend email"}
+              </button>
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => { switchMode("login"); }}
+                  className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm border border-border transition-all hover:border-primary hover:text-primary"
+                >
+                  Sign in
+                </button>
+                <button
+                  onClick={() => { onClose(); reset(); switchMode("login"); }}
+                  className="font-mono text-[0.63rem] tracking-[0.12em] uppercase px-4 py-2 rounded-sm bg-primary text-primary-foreground transition-all hover:bg-primary-light"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {mode !== "verify-sent" && (
+        <>
         <div className="space-y-4">
           {mode === "login" && (
             <>
@@ -157,6 +204,8 @@ export default function AuthModal({ open, onClose, initialTab = "login" }: AuthM
             </button>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
