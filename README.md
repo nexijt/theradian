@@ -1,73 +1,87 @@
-# Welcome to your Lovable project
+# The Radian
 
-## Project info
+A social logging app where users pin daily moments — photo or audio — to exact coordinates on an interactive 3D globe. Every post is a point in space and time.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+![Globe view](https://raw.githubusercontent.com/nexijt/theradian/main/public/og-preview.png)
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## What it is
 
-**Use Lovable**
+The Radian gives each user two views of the world:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- **Globe** — a shared 3D Earth showing every post from every user as an animated dot with a trailing line. Drag to rotate, click any dot to open the post.
+- **Moon** — a personal 3D sphere showing only your own posts. Accessible from your profile, styled as a private archive of logged moments.
 
-Changes made via Lovable will be committed automatically to this repo.
+Each user can post once per day per type (photo or audio). Posts are pinned to the user's real geographic location via the browser geolocation API, with city and country resolved through reverse geocoding.
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Technologies
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+| Layer | Stack |
+|---|---|
+| Framework | React 18 + TypeScript |
+| 3D rendering | Three.js (custom WebGL scenes, Line2 thick lines) |
+| Backend & auth | Supabase (PostgreSQL, Auth, Storage) |
+| Styling | Tailwind CSS + shadcn/ui |
+| Build | Vite |
+| Routing | React Router v6 |
 
-Follow these steps:
+---
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Features
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **Interactive 3D globe** with animated post dots, continent outlines, and curved country/ocean labels that fade in as they rotate into view
+- **Personal moon scene** per user — a private 3D sphere with crater detail and all your logged moments
+- **One post per day** limit, enforced per type (photo and audio are tracked separately)
+- **Photo posts** — uploaded, cropped to square, and compressed client-side before storage
+- **Audio posts** — .mp3 / .wav, trimmed to 60 seconds client-side before upload
+- **Tag system** — photos tagged as `PHOTO`, `PIXEL`, `INK`, or `MATTER`; audio tagged as `MUSIC`, `VOICE`, `SPOKEN`, or `SOUND`, each with a distinct colour on the globe
+- **Geographic pinning** — browser geolocation + reverse geocoding to city/country level
+- **Real-time presence** — live count of users currently on the globe via Supabase Realtime
+- **Light / dark theme** — persisted to localStorage
+- **Editable profile** — display name, bio, avatar
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+## Auth
+
+- Sign up with **email, username, and password**
+- Sign in with **email or username**
+- **Email verification** on registration
+- **Password reset** via email link
+- Usernames are 3–20 characters, letters / numbers / underscore, case-insensitive
+
+---
+
+## Running locally
+
+**Prerequisites:** Node.js 18+, a free [Supabase](https://supabase.com) project
+
+```bash
+# 1. Clone
+git clone https://github.com/nexijt/theradian.git
+cd theradian
+
+# 2. Install dependencies
+npm install
+
+# 3. Add environment variables
+cp .env.example .env
+# Fill in your Supabase project URL and anon key:
+# VITE_SUPABASE_URL=https://xxxx.supabase.co
+# VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+
+# 4. Start the dev server
 npm run dev
+# → http://localhost:8080
 ```
 
-**Edit a file directly in GitHub**
+Other commands:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```bash
+npm run build   # Production build
+npm run lint    # ESLint
+npm run test    # Run tests (Vitest)
+```
