@@ -59,3 +59,18 @@ Posts carry a `tag` field. Photo tags: `PHOTO`, `PIXEL`, `INK`, `MATTER`. Audio 
 ### UI
 
 shadcn/ui components live in `src/components/ui/`. The theme (light/dark) is managed by `useTheme` and stored in `localStorage` under key `radian-theme`.
+
+# Radian Refactor Guidelines
+
+## Goals
+- Clean up folder structure and file naming
+- Extract reusable logic into shared utilities or hooks
+- Remove dead code and unused imports
+- Improve readability without over-engineering
+- No tests needed at this stage
+
+## Rules
+- Do not change functionality, only structure
+- Prefer small focused files over large ones
+- Use consistent naming conventions throughout
+- Do not add unnecessary abstraction
