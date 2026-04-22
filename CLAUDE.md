@@ -74,3 +74,4 @@ shadcn/ui components live in `src/components/ui/`. The theme (light/dark) is man
 - Prefer small focused files over large ones
 - Use consistent naming conventions throughout
 - Do not add unnecessary abstraction
+- After each prompt that results in files being changed, give a short descriptive commit message in the format "refactor/<commit_message>"
