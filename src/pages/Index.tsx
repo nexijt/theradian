@@ -425,6 +425,25 @@ const Index = () => {
         />
       )}
 
+      {/* ── CHANGE PASSWORD MODAL ───────────────────────────────────── */}
+      {user && (
+        <ChangePasswordModal
+          open={changePwOpen}
+          onClose={() => setChangePwOpen(false)}
+          email={user.email ?? ""}
+        />
+      )}
+
+      {/* ── FEEDBACK MODAL ──────────────────────────────────────────── */}
+      {user && (
+        <FeedbackModal
+          open={feedbackOpen}
+          onClose={() => setFeedbackOpen(false)}
+          user={user}
+          profile={profile}
+        />
+      )}
+
       {/* ── LANDING OVERLAY ─────────────────────────────────────────── */}
       <LandingOverlay open={landingOpen} onEnter={dismissLanding} />
     </div>
