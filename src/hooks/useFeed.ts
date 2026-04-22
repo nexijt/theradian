@@ -151,8 +151,8 @@ export function useFeed() {
         const newFeedPosts = spreadOverlapping(posts.map(dbPostToFeedPost));
         setCurrentPosts(prev => [...prev, ...newFeedPosts]);
       }
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error("useFeed.loadMore failed:", err);
     }
     setLoading(false);
   }, [loading]);
