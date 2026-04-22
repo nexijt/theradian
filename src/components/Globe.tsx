@@ -358,7 +358,7 @@ export default function Globe({
         _nrm.copy(lbl.localPos).normalize().applyMatrix3(_mat3).normalize();
         _toCam.copy(camera.position).sub(_wPos).normalize();
         const facing = _toCam.dot(_nrm);
-        const target = Math.max(0, Math.min(1, (facing - 0.08) / 0.28));
+        const target = Math.max(0, Math.min(1, (facing - 0.16) / 0.28));
         lbl.prog += (target - lbl.prog) * 0.04;
         if (lbl.prog < 0.01) continue;
 
