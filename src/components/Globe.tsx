@@ -7,8 +7,21 @@ import { CONTINENT_OUTLINES, GLOBE_LABELS } from "@/lib/globe-data";
 import type { FeedPost } from "@/hooks/useFeed";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getTagColor, normalizeTag } from "@/lib/tag-colors";
-import { RADIUS, GLOBE_EASE as EASE, GLOBE_LAG_SPEED as LAG_SPEED, GLOBE_OVERLAP_THRESH as OVERLAP_THRESH } from "@/lib/scene-constants";
-import { projectPoint, easeInOut, resolveOverlaps, createDepthMask, createSurfaceMesh, createWireframeMesh, type PostObjectBase } from "@/lib/sphere-utils";
+import {
+  RADIUS,
+  GLOBE_EASE as EASE,
+  GLOBE_LAG_SPEED as LAG_SPEED,
+  GLOBE_OVERLAP_THRESH as OVERLAP_THRESH,
+} from "@/lib/scene-constants";
+import {
+  projectPoint,
+  easeInOut,
+  resolveOverlaps,
+  createDepthMask,
+  createSurfaceMesh,
+  createWireframeMesh,
+  type PostObjectBase,
+} from "@/lib/sphere-utils";
 
 const LINE_MAX = 80;
 const WINDOW_SIZE = 10;
@@ -358,7 +371,7 @@ export default function Globe({
         _nrm.copy(lbl.localPos).normalize().applyMatrix3(_mat3).normalize();
         _toCam.copy(camera.position).sub(_wPos).normalize();
         const facing = _toCam.dot(_nrm);
-        const target = Math.max(0, Math.min(1, (facing - 0.16) / 0.28));
+        const target = Math.max(0, Math.min(1, (facing - 0.3) / 0.28));
         lbl.prog += (target - lbl.prog) * 0.04;
         if (lbl.prog < 0.01) continue;
 
@@ -383,8 +396,7 @@ export default function Globe({
         _cv2.applyMatrix4(spinGroup.matrixWorld);
         const r2D = toScreen(_cv2);
         const pxPerDeg =
-          Math.sqrt((r2D.x - l2D.x) ** 2 + (r2D.y - l2D.y) ** 2) /
-          (2 * delta);
+          Math.sqrt((r2D.x - l2D.x) ** 2 + (r2D.y - l2D.y) ** 2) / (2 * delta);
         if (pxPerDeg < 1) continue;
 
         // Draw each character at its sphere-projected position with local rotation
