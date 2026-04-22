@@ -10,36 +10,17 @@ import OrbitingMoon from "@/components/OrbitingMoon";
 import EditProfileModal from "@/components/EditProfileModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
-import { useFeed, type FeedPost } from "@/hooks/useFeed";
+import { useFeed, type FeedPost, postToFeedPost } from "@/hooks/useFeed";
 import { useTheme } from "@/hooks/useTheme";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchPostsByUserId, type PostWithProfile } from "@/lib/posts";
+import { fetchPostsByUserId } from "@/lib/posts";
 
 const LANDING_SEEN_KEY = "radian-landing-seen";
 
-function dbToFeed(p: PostWithProfile): FeedPost {
-  return {
-    id: p.id,
-    lat: p.latitude || 0,
-    lon: p.longitude || 0,
-    user: p.username,
-    location:
-      [p.city, p.country].filter(Boolean).join(", ") || "Somewhere on Earth",
-    caption: p.caption || "",
-    time: new Date(p.created_at).toLocaleDateString([], {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-    type: p.type as "photo" | "audio",
-    mediaUrl: p.media_url,
-    displayName: p.display_name || undefined,
-    tag: p.tag || undefined,
-    createdAt: p.created_at,
-  };
-}
+const moonTimeFormat = (dateStr: string) =>
+  new Date(dateStr).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
@@ -120,7 +101,7 @@ const Index = () => {
     if (sceneView === "moon" && profile) {
       setMoonPostsLoading(true);
       fetchPostsByUserId(profile.user_id)
-        .then((rows) => setMoonPosts(rows.map(dbToFeed)))
+        .then((rows) => setMoonPosts(rows.map(p => postToFeedPost(p, moonTimeFormat(p.created_at), "Somewhere on Earth"))))
         .finally(() => setMoonPostsLoading(false));
     }
   }, [sceneView, profile]);

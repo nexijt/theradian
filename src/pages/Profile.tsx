@@ -6,25 +6,11 @@ import PostPanel from "@/components/PostPanel";
 import EditProfileModal from "@/components/EditProfileModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfileByUsername, useMyProfile } from "@/hooks/useProfile";
-import { fetchPostsByUserId, type PostWithProfile } from "@/lib/posts";
-import type { FeedPost } from "@/hooks/useFeed";
+import { fetchPostsByUserId } from "@/lib/posts";
+import { type FeedPost, postToFeedPost } from "@/hooks/useFeed";
 
-function dbToFeed(p: PostWithProfile): FeedPost {
-  return {
-    id: p.id,
-    lat: p.latitude || 0,
-    lon: p.longitude || 0,
-    user: p.username,
-    location: [p.city, p.country].filter(Boolean).join(", ") || "Somewhere on Earth",
-    caption: p.caption || "",
-    time: new Date(p.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }),
-    type: p.type as "photo" | "audio",
-    mediaUrl: p.media_url,
-    displayName: p.display_name || undefined,
-    tag: p.tag || undefined,
-    createdAt: p.created_at,
-  };
-}
+const profileTimeFormat = (dateStr: string) =>
+  new Date(dateStr).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 
 const Profile = () => {
   // Route is /:username — URL is /@nexijt, param captures "@nexijt", strip the @
@@ -55,7 +41,7 @@ const Profile = () => {
     if (!profile) return;
     setPostsLoading(true);
     fetchPostsByUserId(profile.user_id)
-      .then((rows) => setPosts(rows.map(dbToFeed)))
+      .then((rows) => setPosts(rows.map(p => postToFeedPost(p, profileTimeFormat(p.created_at), "Somewhere on Earth"))))
       .finally(() => setPostsLoading(false));
   }, [profile]);
 
