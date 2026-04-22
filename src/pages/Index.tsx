@@ -87,9 +87,14 @@ const Index = () => {
     setShowHint(false);
   };
 
+  const handleUserClick = (username: string) => {
+    visitUserMoon(username);
+    postNav.clearSelection();
+  };
+
   const displayName = profile?.display_name || profile?.username || "";
 
-  const { sceneView, moonMounted, moonPosts, moonPostsLoading, selectedMoonPost, setSelectedMoonPost, exitMoon } = moonScene;
+  const { sceneView, moonMounted, moonPosts, moonPostsLoading, selectedMoonPost, setSelectedMoonPost, exitMoon, visitUserMoon, visitedProfile, isVisiting } = moonScene;
   const { selectedPost, spinToLon, visiblePostsRef, handleVisiblePostsChange, handleNextPost, handlePrevPost, clearSelection } = postNav;
 
   const activePost = sceneView === "earth" ? selectedPost : selectedMoonPost;
@@ -186,67 +191,73 @@ const Index = () => {
       )}
 
       {/* ── PROFILE CARD (moon view) ────────────────────────────────── */}
-      {moonMounted && profile && (
-        <div
-          className="fixed top-1/2 left-4 sm:left-8 -translate-y-1/2 z-40 w-[260px] max-w-[80vw] p-6 rounded-sm border border-border"
-          style={{
-            background: "hsl(var(--popover) / 0.85)",
-            backdropFilter: "blur(10px)",
-            opacity: sceneView === "moon" ? 1 : 0,
-            transform:
-              sceneView === "moon"
-                ? "translateY(-50%) translateX(0)"
-                : "translateY(-50%) translateX(-18px)",
-            transition:
-              "opacity 0.7s ease 0.5s, transform 0.8s cubic-bezier(0.16,1,0.3,1) 0.5s",
-            pointerEvents: sceneView === "moon" ? "auto" : "none",
-          }}
-        >
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-14 h-14 rounded-full bg-secondary border border-border overflow-hidden flex items-center justify-center flex-shrink-0">
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={displayName}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-xl font-light italic text-muted-foreground">
-                  {displayName.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-lg font-light italic truncate text-foreground">
-                {displayName}
-              </div>
-              <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-muted-foreground truncate">
-                @{profile.username}
-              </div>
-            </div>
-          </div>
-
-          {profile.bio && (
-            <p className="font-serif text-sm text-foreground/80 leading-relaxed mb-4 italic">
-              {profile.bio}
-            </p>
-          )}
-
-          <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-muted-foreground mb-4">
-            {moonPostsLoading
-              ? "…"
-              : `${moonPosts.length} ${moonPosts.length === 1 ? "log" : "logs"}`}
-          </div>
-
-          <button
-            onClick={() => setEditOpen(true)}
-            className="flex items-center gap-2 font-mono text-[0.55rem] tracking-[0.14em] uppercase px-3 py-1.5 rounded-sm border border-border hover:border-primary hover:text-primary transition-all"
+      {moonMounted && (isVisiting ? visitedProfile : profile) && (() => {
+        const cardProfile = isVisiting ? visitedProfile! : profile!;
+        const cardName = cardProfile.display_name || cardProfile.username;
+        return (
+          <div
+            className="fixed top-1/2 left-4 sm:left-8 -translate-y-1/2 z-40 w-[260px] max-w-[80vw] p-6 rounded-sm border border-border"
+            style={{
+              background: "hsl(var(--popover) / 0.85)",
+              backdropFilter: "blur(10px)",
+              opacity: sceneView === "moon" ? 1 : 0,
+              transform:
+                sceneView === "moon"
+                  ? "translateY(-50%) translateX(0)"
+                  : "translateY(-50%) translateX(-18px)",
+              transition:
+                "opacity 0.7s ease 0.5s, transform 0.8s cubic-bezier(0.16,1,0.3,1) 0.5s",
+              pointerEvents: sceneView === "moon" ? "auto" : "none",
+            }}
           >
-            <Edit2 className="w-3 h-3" />
-            Edit moon
-          </button>
-        </div>
-      )}
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-14 h-14 rounded-full bg-secondary border border-border overflow-hidden flex items-center justify-center flex-shrink-0">
+                {cardProfile.avatar_url ? (
+                  <img
+                    src={cardProfile.avatar_url}
+                    alt={cardName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xl font-light italic text-muted-foreground">
+                    {cardName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-lg font-light italic truncate text-foreground">
+                  {cardName}
+                </div>
+                <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-muted-foreground truncate">
+                  @{cardProfile.username}
+                </div>
+              </div>
+            </div>
+
+            {cardProfile.bio && (
+              <p className="font-serif text-sm text-foreground/80 leading-relaxed mb-4 italic">
+                {cardProfile.bio}
+              </p>
+            )}
+
+            <div className="font-mono text-[0.55rem] tracking-[0.14em] uppercase text-muted-foreground mb-4">
+              {moonPostsLoading
+                ? "…"
+                : `${moonPosts.length} ${moonPosts.length === 1 ? "log" : "logs"}`}
+            </div>
+
+            {!isVisiting && (
+              <button
+                onClick={() => setEditOpen(true)}
+                className="flex items-center gap-2 font-mono text-[0.55rem] tracking-[0.14em] uppercase px-3 py-1.5 rounded-sm border border-border hover:border-primary hover:text-primary transition-all"
+              >
+                <Edit2 className="w-3 h-3" />
+                Edit moon
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── NAV ────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-9 py-3 sm:py-5 z-50 pointer-events-none">
@@ -381,6 +392,7 @@ const Index = () => {
         onClose={closeActivePost}
         onNext={sceneView === "earth" ? handleNextPost : undefined}
         onPrev={sceneView === "earth" ? handlePrevPost : undefined}
+        onUserClick={handleUserClick}
       />
 
       {/* ── ORBITING MOON BUTTON ────────────────────────────────────── */}

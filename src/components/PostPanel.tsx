@@ -8,9 +8,10 @@ interface PostPanelProps {
   onClose: () => void;
   onNext?: () => void;
   onPrev?: () => void;
+  onUserClick?: (username: string) => void;
 }
 
-export default function PostPanel({ post, onClose, onNext, onPrev }: PostPanelProps) {
+export default function PostPanel({ post, onClose, onNext, onPrev, onUserClick }: PostPanelProps) {
   if (!post) return null;
 
   const isOpen = !!post;
@@ -39,9 +40,12 @@ export default function PostPanel({ post, onClose, onNext, onPrev }: PostPanelPr
       <div className="font-mono text-[0.58rem] tracking-[0.14em] uppercase mb-2.5" style={{ color: tagColor.hex }}>
         {normalizedTag ? `[${normalizedTag}] ` : ""}{locationText}
       </div>
-      <div className="text-lg font-light italic mb-1 text-foreground">
+      <button
+        onClick={onUserClick ? () => onUserClick(post.user) : undefined}
+        className={`text-lg font-light italic mb-1 text-foreground bg-transparent border-none p-0 text-left${onUserClick ? " cursor-pointer hover:underline" : " cursor-default"}`}
+      >
         @{post.user}
-      </div>
+      </button>
       <div className="font-mono text-[0.56rem] text-muted-foreground tracking-[0.1em] mb-4">
         {post.time}
       </div>
