@@ -127,62 +127,56 @@ export async function createPost(params: {
 const MAX_IMAGE_DIMENSION = 1200;
 const IMAGE_QUALITY = 0.75;
 
-/** Compress and optionally resize an image file before upload */
-export function compressImage(file: File, maxDim = MAX_IMAGE_DIMENSION, quality = IMAGE_QUALITY): Promise<File> {
+function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => {
-      let w = img.width;
-      let h = img.height;
-      if (w > maxDim || h > maxDim) {
-        const ratio = Math.min(maxDim / w, maxDim / h);
-        w = Math.round(w * ratio);
-        h = Math.round(h * ratio);
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, w, h);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return reject(new Error("Failed to compress image"));
-          resolve(new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }));
-        },
-        "image/jpeg",
-        quality
-      );
-    };
+    img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = URL.createObjectURL(file);
   });
 }
 
-export function squareImage(file: File): Promise<File> {
+function canvasToFile(canvas: HTMLCanvasElement, name: string, quality: number): Promise<File> {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const size = Math.min(Math.max(img.width, img.height), MAX_IMAGE_DIMENSION);
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#f4f1eb";
-      ctx.fillRect(0, 0, size, size);
-      const scale = Math.min(size / img.width, size / img.height);
-      const sw = img.width * scale;
-      const sh = img.height * scale;
-      ctx.drawImage(img, (size - sw) / 2, (size - sh) / 2, sw, sh);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return reject(new Error("Failed to create square image"));
-          resolve(new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }));
-        },
-        "image/jpeg",
-        IMAGE_QUALITY
-      );
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return reject(new Error("Failed to process image"));
+        resolve(new File([blob], name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }));
+      },
+      "image/jpeg",
+      quality
+    );
   });
+}
+
+export async function compressImage(file: File, maxDim = MAX_IMAGE_DIMENSION, quality = IMAGE_QUALITY): Promise<File> {
+  const img = await loadImage(file);
+  let w = img.width;
+  let h = img.height;
+  if (w > maxDim || h > maxDim) {
+    const ratio = Math.min(maxDim / w, maxDim / h);
+    w = Math.round(w * ratio);
+    h = Math.round(h * ratio);
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+  return canvasToFile(canvas, file.name, quality);
+}
+
+export async function squareImage(file: File): Promise<File> {
+  const img = await loadImage(file);
+  const size = Math.min(Math.max(img.width, img.height), MAX_IMAGE_DIMENSION);
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#f4f1eb";
+  ctx.fillRect(0, 0, size, size);
+  const scale = Math.min(size / img.width, size / img.height);
+  const sw = img.width * scale;
+  const sh = img.height * scale;
+  ctx.drawImage(img, (size - sw) / 2, (size - sh) / 2, sw, sh);
+  return canvasToFile(canvas, file.name, IMAGE_QUALITY);
 }
