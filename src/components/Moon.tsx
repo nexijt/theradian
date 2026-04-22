@@ -3,19 +3,10 @@ import * as THREE from "three";
 import type { FeedPost } from "@/hooks/useFeed";
 import { getTagColor, normalizeTag } from "@/lib/tag-colors";
 import { RADIUS, MOON_EASE as EASE, MOON_LAG_SPEED as LAG_SPEED, MOON_OVERLAP_THRESH as OVERLAP_THRESH } from "@/lib/scene-constants";
+import { projectPoint, easeInOut, resolveOverlaps, type PostObjectBase } from "@/lib/sphere-utils";
 
 const LINE_MAX = 75;
 const MOON_COLOR = 0x4a5060; // dark slate grey
-
-function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
-  const latR = lat * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -r * Math.cos(latR) * Math.cos(theta),
-    r * Math.sin(latR),
-    r * Math.cos(latR) * Math.sin(theta),
-  );
-}
 
 // Generate a small-circle on the sphere surface for a crater ring
 function craterCircle(
@@ -103,10 +94,6 @@ const MOON_CRATERS: Array<{
   { lat: -30, lon: 100, r: 1.5 },
 ];
 
-function easeInOut(t: number) {
-  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-}
-
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString([], {
     month: "short",
@@ -114,19 +101,6 @@ function shortDate(iso: string): string {
   });
 }
 
-interface PostObj {
-  localPos: THREE.Vector3;
-  dot: THREE.Mesh;
-  el: HTMLDivElement;
-  originEl: HTMLDivElement;
-  data: FeedPost;
-  progress: number;
-  lagX: number | null;
-  lagY: number | null;
-  lineLengthMult: number;
-  facing: number;
-  tagColorRgb: [number, number, number];
-}
 
 interface MoonProps {
   posts: FeedPost[];
@@ -372,7 +346,7 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
     canvas.addEventListener("touchend", onTouchEnd);
 
     // Build post objects
-    const postObjects: PostObj[] = posts.map((post) => {
+    const postObjects: PostObjectBase[] = posts.map((post) => {
       const localPos = projectPoint(post.lat, post.lon, RADIUS);
       const tagColor = getTagColor(post.tag, post.type);
       const normalizedTag = normalizeTag(post.tag, post.type);
@@ -552,31 +526,7 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
         }
       });
 
-      // Overlap avoidance — push overlapping labels apart
-      const visible = postObjects.filter(
-        (p) => p.progress > 0 && p.lagX !== null,
-      );
-      for (let i = 0; i < visible.length; i++) {
-        const a = visible[i];
-        for (let j = i + 1; j < visible.length; j++) {
-          const b = visible[j];
-          const ddx = a.lagX! - b.lagX!;
-          const ddy = a.lagY! - b.lagY!;
-          const d = Math.sqrt(ddx * ddx + ddy * ddy);
-          if (d < OVERLAP_THRESH) {
-            if (a.progress >= b.progress) {
-              a.lineLengthMult += (1.0 - a.lineLengthMult) * 0.06;
-              b.lineLengthMult += (1.7 - b.lineLengthMult) * 0.06;
-            } else {
-              b.lineLengthMult += (1.0 - b.lineLengthMult) * 0.06;
-              a.lineLengthMult += (1.7 - a.lineLengthMult) * 0.06;
-            }
-          } else {
-            a.lineLengthMult += (1.0 - a.lineLengthMult) * 0.03;
-            b.lineLengthMult += (1.0 - b.lineLengthMult) * 0.03;
-          }
-        }
-      }
+      resolveOverlaps(postObjects, OVERLAP_THRESH);
     }
 
     let raf = 0;

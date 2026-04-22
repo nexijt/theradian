@@ -10,25 +10,12 @@ import type { FeedPost } from "@/hooks/useFeed";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getTagColor, normalizeTag } from "@/lib/tag-colors";
 import { RADIUS, GLOBE_EASE as EASE, GLOBE_LAG_SPEED as LAG_SPEED, GLOBE_OVERLAP_THRESH as OVERLAP_THRESH } from "@/lib/scene-constants";
+import { projectPoint, easeInOut, resolveOverlaps, type PostObjectBase } from "@/lib/sphere-utils";
 
 const LINE_MAX = 80;
 const WINDOW_SIZE = 10;
 const MOBILE_SCALE = 0.67;
 const DESKTOP_SCALE = 1.1;
-
-function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
-  const latR = lat * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -r * Math.cos(latR) * Math.cos(theta),
-    r * Math.sin(latR),
-    r * Math.cos(latR) * Math.sin(theta),
-  );
-}
-
-function easeInOut(t: number) {
-  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-}
 
 function normalizeAngle(angle: number) {
   let normalized = angle;
@@ -43,22 +30,11 @@ function getRotationForCenteredLongitude(lon: number) {
   return -(lon + 90) * (Math.PI / 180);
 }
 
-interface PostObject {
-  localPos: THREE.Vector3;
-  dot: THREE.Mesh;
-  el: HTMLDivElement;
-  originEl: HTMLDivElement;
-  data: FeedPost;
-  progress: number;
-  lagX: number | null;
-  lagY: number | null;
+interface PostObject extends PostObjectBase {
   _drawnX: number;
   _drawnY: number;
-  lineLengthMult: number;
   isHidden: boolean;
-  facing: number;
   dateIndex: number;
-  tagColorRgb: [number, number, number];
 }
 
 interface GlobeProps {
@@ -657,30 +633,7 @@ export default function Globe({
         }
       });
 
-      const visible = s.postObjects.filter(
-        (p) => p.progress > 0 && p.lagX !== null,
-      );
-      for (let i = 0; i < visible.length; i++) {
-        const a = visible[i];
-        for (let j = i + 1; j < visible.length; j++) {
-          const b = visible[j];
-          const ddx = a.lagX! - b.lagX!;
-          const ddy = a.lagY! - b.lagY!;
-          const d = Math.sqrt(ddx * ddx + ddy * ddy);
-          if (d < OVERLAP_THRESH) {
-            if (a.progress >= b.progress) {
-              a.lineLengthMult += (1.0 - a.lineLengthMult) * 0.06;
-              b.lineLengthMult += (1.7 - b.lineLengthMult) * 0.06;
-            } else {
-              b.lineLengthMult += (1.0 - b.lineLengthMult) * 0.06;
-              a.lineLengthMult += (1.7 - a.lineLengthMult) * 0.06;
-            }
-          } else {
-            a.lineLengthMult += (1.0 - a.lineLengthMult) * 0.03;
-            b.lineLengthMult += (1.0 - b.lineLengthMult) * 0.03;
-          }
-        }
-      }
+      resolveOverlaps(s.postObjects, OVERLAP_THRESH);
     }
 
     let animId: number;
