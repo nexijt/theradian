@@ -36,15 +36,13 @@ function formatPostTime(dateStr: string): string {
   }
 }
 
-function dbPostToFeedPost(post: PostWithProfile): FeedPost {
-  const time = formatPostTime(post.created_at);
-  const location = [post.city, post.country].filter(Boolean).join(", ") || "Unknown";
+export function postToFeedPost(post: PostWithProfile, time: string, locationFallback = "Unknown"): FeedPost {
   return {
     id: post.id,
     lat: post.latitude || 0,
     lon: post.longitude || 0,
     user: post.username,
-    location,
+    location: [post.city, post.country].filter(Boolean).join(", ") || locationFallback,
     caption: post.caption || "",
     time,
     type: post.type as "photo" | "audio",
@@ -53,6 +51,10 @@ function dbPostToFeedPost(post: PostWithProfile): FeedPost {
     tag: post.tag || undefined,
     createdAt: post.created_at,
   };
+}
+
+function dbPostToFeedPost(post: PostWithProfile): FeedPost {
+  return postToFeedPost(post, formatPostTime(post.created_at));
 }
 
 // Offset posts that share the same rounded lat/lon so they don't overlap
@@ -149,8 +151,8 @@ export function useFeed() {
         const newFeedPosts = spreadOverlapping(posts.map(dbPostToFeedPost));
         setCurrentPosts(prev => [...prev, ...newFeedPosts]);
       }
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error("useFeed.loadMore failed:", err);
     }
     setLoading(false);
   }, [loading]);

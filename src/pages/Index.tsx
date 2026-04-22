@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Moon, Sun, Edit2 } from "lucide-react";
 import Globe from "@/components/Globe";
 import MoonScene from "@/components/Moon";
@@ -12,66 +12,35 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useFeed, type FeedPost } from "@/hooks/useFeed";
 import { useTheme } from "@/hooks/useTheme";
+import { usePresence } from "@/hooks/usePresence";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { usePostNavigation } from "@/hooks/usePostNavigation";
+import { useMoonScene } from "@/hooks/useMoonScene";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { fetchPostsByUserId, type PostWithProfile } from "@/lib/posts";
 
 const LANDING_SEEN_KEY = "radian-landing-seen";
-
-function dbToFeed(p: PostWithProfile): FeedPost {
-  return {
-    id: p.id,
-    lat: p.latitude || 0,
-    lon: p.longitude || 0,
-    user: p.username,
-    location:
-      [p.city, p.country].filter(Boolean).join(", ") || "Somewhere on Earth",
-    caption: p.caption || "",
-    time: new Date(p.created_at).toLocaleDateString([], {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-    type: p.type as "photo" | "audio",
-    mediaUrl: p.media_url,
-    displayName: p.display_name || undefined,
-    tag: p.tag || undefined,
-    createdAt: p.created_at,
-  };
-}
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { profile, refresh: refreshMyProfile } = useMyProfile(user);
   const { currentPosts, loadInitial, loadMore } = useFeed();
   const { theme, toggle: toggleTheme } = useTheme();
+  const { activeCount } = usePresence();
+  const { isOnline } = useOnlineStatus();
+  const postNav = usePostNavigation();
+  const moonScene = useMoonScene(profile);
+  const { toast } = useToast();
 
-  // Earth view state
   const [authModal, setAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
-  const [selectedPost, setSelectedPost] = useState<FeedPost | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
-  const [activeCount, setActiveCount] = useState(1);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [spinToLon, setSpinToLon] = useState<number | null>(null);
   const [landingOpen, setLandingOpen] = useState(() => {
     if (typeof window === "undefined") return false;
     return !localStorage.getItem(LANDING_SEEN_KEY);
   });
-  const { toast } = useToast();
-  const visiblePostsRef = useRef<FeedPost[]>([]);
-
-  // Moon / transition state
-  const [sceneView, setSceneView] = useState<"earth" | "moon">("earth");
-  const [moonMounted, setMoonMounted] = useState(false);
-  const [moonPosts, setMoonPosts] = useState<FeedPost[]>([]);
-  const [moonPostsLoading, setMoonPostsLoading] = useState(false);
-  const [selectedMoonPost, setSelectedMoonPost] = useState<FeedPost | null>(
-    null,
-  );
-  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     loadInitial();
@@ -82,97 +51,13 @@ const Index = () => {
     return () => clearTimeout(t);
   }, []);
 
-  // Online/offline
-  useEffect(() => {
-    const on = () => setIsOnline(true);
-    const off = () => setIsOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    return () => {
-      window.removeEventListener("online", on);
-      window.removeEventListener("offline", off);
-    };
-  }, []);
-
-  // Realtime presence
-  useEffect(() => {
-    const presenceKey = crypto.randomUUID();
-    const channel = supabase.channel("theradian:presence", {
-      config: { presence: { key: presenceKey } },
-    });
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        setActiveCount(Object.keys(state).length);
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await channel.track({ joined_at: new Date().toISOString() });
-        }
-      });
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  // Load moon posts when entering moon view
-  useEffect(() => {
-    if (sceneView === "moon" && profile) {
-      setMoonPostsLoading(true);
-      fetchPostsByUserId(profile.user_id)
-        .then((rows) => setMoonPosts(rows.map(dbToFeed)))
-        .finally(() => setMoonPostsLoading(false));
-    }
-  }, [sceneView, profile]);
-
-  const handleVisiblePostsChange = useCallback((vp: FeedPost[]) => {
-    visiblePostsRef.current = vp;
-  }, []);
-
-  const handlePostClick = useCallback((post: FeedPost) => {
-    setSelectedPost(post);
-    setShowHint(false);
-  }, []);
-
-  const handleNextPost = useCallback(() => {
-    if (!selectedPost) return;
-    const sorted = [...visiblePostsRef.current].sort((a, b) => a.lon - b.lon);
-    if (sorted.length === 0) return;
-    const currentLon = selectedPost.lon;
-    let next = sorted.find(
-      (p) => p.lon > currentLon && p.id !== selectedPost.id,
-    );
-    if (!next) next = sorted.find((p) => p.id !== selectedPost.id);
-    if (!next) return;
-    setSelectedPost(next);
-    setSpinToLon(next.lon);
-  }, [selectedPost]);
-
-  const handlePrevPost = useCallback(() => {
-    if (!selectedPost) return;
-    const sorted = [...visiblePostsRef.current].sort((a, b) => a.lon - b.lon);
-    if (sorted.length === 0) return;
-    const currentLon = selectedPost.lon;
-    const reversed = [...sorted].reverse();
-    let prev = reversed.find(
-      (p) => p.lon < currentLon && p.id !== selectedPost.id,
-    );
-    if (!prev) prev = reversed.find((p) => p.id !== selectedPost.id);
-    if (!prev) return;
-    setSelectedPost(prev);
-    setSpinToLon(prev.lon);
-  }, [selectedPost]);
-
   const handleOpenAuth = (tab: "login" | "register") => {
     setAuthTab(tab);
     setAuthModal(true);
   };
 
   const handlePost = () => {
-    if (!user) {
-      handleOpenAuth("login");
-      return;
-    }
+    if (!user) { handleOpenAuth("login"); return; }
     setCreateOpen(true);
   };
 
@@ -188,28 +73,22 @@ const Index = () => {
 
   const goToMyMoon = () => {
     if (!user || !profile?.username) return;
-    setMoonMounted(true);
-    setSceneView("moon");
-    setSelectedPost(null);
-    setSpinToLon(null);
+    moonScene.enterMoon();
+    postNav.clearSelection();
   };
 
-  const goToEarth = () => {
-    setSceneView("earth");
-    setSelectedMoonPost(null);
+  const onPostClick = (post: FeedPost) => {
+    postNav.handlePostClick(post);
+    setShowHint(false);
   };
 
   const displayName = profile?.display_name || profile?.username || "";
 
-  // Which post to show in the panel
+  const { sceneView, moonMounted, moonPosts, moonPostsLoading, selectedMoonPost, setSelectedMoonPost, exitMoon } = moonScene;
+  const { selectedPost, spinToLon, visiblePostsRef, handleVisiblePostsChange, handleNextPost, handlePrevPost, clearSelection } = postNav;
+
   const activePost = sceneView === "earth" ? selectedPost : selectedMoonPost;
-  const closeActivePost =
-    sceneView === "earth"
-      ? () => {
-          setSelectedPost(null);
-          setSpinToLon(null);
-        }
-      : () => setSelectedMoonPost(null);
+  const closeActivePost = sceneView === "earth" ? clearSelection : () => setSelectedMoonPost(null);
 
   return (
     <div className="w-full h-screen overflow-hidden">
@@ -231,7 +110,7 @@ const Index = () => {
       >
         <Globe
           posts={currentPosts}
-          onPostClick={handlePostClick}
+          onPostClick={onPostClick}
           paused={!!selectedPost}
           onNeedMore={loadMore}
           selectedPostId={selectedPost?.id}
@@ -243,7 +122,7 @@ const Index = () => {
       {/* Clickable overlay for mini-globe (in moon view) */}
       {moonMounted && (
         <button
-          onClick={goToEarth}
+          onClick={exitMoon}
           aria-label="Back to Earth globe"
           style={{
             position: "fixed",
