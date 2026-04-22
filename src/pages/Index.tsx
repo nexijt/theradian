@@ -8,6 +8,9 @@ import CreatePostSheet from "@/components/CreatePostSheet";
 import LandingOverlay from "@/components/LandingOverlay";
 import OrbitingMoon from "@/components/OrbitingMoon";
 import EditProfileModal from "@/components/EditProfileModal";
+import ProfileMenu from "@/components/ProfileMenu";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
+import FeedbackModal from "@/components/FeedbackModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useFeed, type FeedPost } from "@/hooks/useFeed";
@@ -36,6 +39,8 @@ const Index = () => {
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [changePwOpen, setChangePwOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
   const [landingOpen, setLandingOpen] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -265,12 +270,15 @@ const Index = () => {
           </button>
           {user ? (
             <>
-              <button
-                onClick={handleSignOut}
-                className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm border border-border transition-all hover:border-primary hover:text-primary"
-              >
-                Sign out
-              </button>
+              <ProfileMenu
+                user={user}
+                profile={profile}
+                onVisitMoon={goToMyMoon}
+                onEditProfile={() => setEditOpen(true)}
+                onChangePassword={() => setChangePwOpen(true)}
+                onSendFeedback={() => setFeedbackOpen(true)}
+                onSignOut={handleSignOut}
+              />
               <button
                 onClick={handlePost}
                 className="font-mono text-[0.55rem] sm:text-[0.63rem] tracking-[0.12em] uppercase px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm bg-primary text-primary-foreground transition-all hover:bg-primary-light"
@@ -414,6 +422,25 @@ const Index = () => {
           onSaved={() => {
             refreshMyProfile();
           }}
+        />
+      )}
+
+      {/* ── CHANGE PASSWORD MODAL ───────────────────────────────────── */}
+      {user && (
+        <ChangePasswordModal
+          open={changePwOpen}
+          onClose={() => setChangePwOpen(false)}
+          email={user.email ?? ""}
+        />
+      )}
+
+      {/* ── FEEDBACK MODAL ──────────────────────────────────────────── */}
+      {user && (
+        <FeedbackModal
+          open={feedbackOpen}
+          onClose={() => setFeedbackOpen(false)}
+          user={user}
+          profile={profile}
         />
       )}
 

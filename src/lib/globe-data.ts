@@ -1,20 +1,19 @@
 import worldAtlas from "world-atlas/countries-110m.json";
 import { feature } from "topojson-client";
-import type { Topology } from "topojson-specification";
 
 /**
  * Builds accurate country/continent outlines from Natural Earth data (world-atlas).
  * Returns [lon, lat][][] — the same format Globe.tsx already consumes via ([lo, la]).
  */
 function buildContinentOutlines(): [number, number][][] {
-  const topo = worldAtlas as unknown as Topology;
-  const geo = feature(topo, (topo as any).objects.countries);
+  const topo = worldAtlas as any;
+  const geo = feature(topo, topo.objects.countries) as any;
   const rings: [number, number][][] = [];
 
   for (const f of geo.features) {
     const { type, coordinates } = f.geometry as {
       type: string;
-      coordinates: [number, number][][][];
+      coordinates: any;
     };
     if (type === "Polygon") {
       rings.push(coordinates[0] as [number, number][]);
