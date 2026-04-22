@@ -89,6 +89,33 @@ export async function updatePassword(newPassword: string) {
   if (error) throw error;
 }
 
+export async function changePassword(
+  email: string,
+  currentPassword: string,
+  newPassword: string,
+) {
+  // Re-authenticate to confirm the user knows their current password
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password: currentPassword,
+  });
+  if (signInError) throw new Error("Current password is incorrect");
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
+export async function resendVerification(email: string) {
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: email.trim(),
+    options: {
+      emailRedirectTo: `${window.location.origin}/`,
+    },
+  });
+  if (error) throw error;
+}
+
 export async function getCurrentProfile() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
