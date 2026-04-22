@@ -16,6 +16,22 @@ interface CreatePostSheetProps {
   onPostCreated: () => void;
 }
 
+async function reverseGeocode(lat: number, lon: number): Promise<{ city?: string; country?: string }> {
+  try {
+    const res = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+    );
+    if (!res.ok) return {};
+    const data = await res.json();
+    return {
+      city: data.city || data.locality || undefined,
+      country: data.countryName || undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 export default function CreatePostSheet({ open, onClose, userId, onPostCreated }: CreatePostSheetProps) {
   const [postType, setPostType] = useState<"photo" | "audio">("photo");
   const [file, setFile] = useState<File | null>(null);
@@ -104,12 +120,13 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         });
         lat = pos.coords.latitude;
         lon = pos.coords.longitude;
+        const geo = await reverseGeocode(lat, lon);
+        city = geo.city;
+        country = geo.country;
       } catch {
-        // Geolocation denied or failed — random point in Pacific Ocean
-        lat = -10 + Math.random() * 20;   // roughly -10 to 10
-        lon = -170 + Math.random() * 40;  // roughly -170 to -130
-        city = "Somewhere on Earth";
-        country = "Somewhere on Earth";
+        toast({ title: "Location unavailable — your post will appear at a random spot on the globe.", variant: "destructive" });
+        lat = -10 + Math.random() * 20;
+        lon = -170 + Math.random() * 40;
       }
 
       await createPost({
