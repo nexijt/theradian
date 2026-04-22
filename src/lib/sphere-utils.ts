@@ -1,5 +1,10 @@
 import * as THREE from "three";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { Wireframe } from "three/examples/jsm/lines/Wireframe.js";
+import { WireframeGeometry2 } from "three/examples/jsm/lines/WireframeGeometry2.js";
 import type { FeedPost } from "@/hooks/useFeed";
+import { RADIUS } from "@/lib/scene-constants";
 
 export function projectPoint(lat: number, lon: number, r: number): THREE.Vector3 {
   const latR = lat * (Math.PI / 180);
@@ -29,6 +34,51 @@ export interface PostObjectBase {
   facing: number;
   tagColorRgb: [number, number, number];
 }
+
+/** Invisible depth-mask sphere — occludes geometry behind the surface. Identical in Globe and Moon. */
+export function createDepthMask(): THREE.Mesh {
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
+    new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }),
+  );
+}
+
+/** Translucent coloured surface sphere. Pass the scene-specific base color. */
+export function createSurfaceMesh(color: number): THREE.Mesh {
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(RADIUS * 0.995, 48, 32),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3, depthWrite: false }),
+  );
+}
+
+/**
+ * Line2-based wireframe sphere with configurable appearance.
+ * Returns both the mesh and material so callers can update resolution on resize.
+ */
+export function createWireframeMesh(options: {
+  color: number;
+  linewidth: number;
+  opacity: number;
+  resolution: THREE.Vector2;
+}): { mesh: Wireframe; material: LineMaterial } {
+  const material = new LineMaterial({
+    color: options.color,
+    linewidth: options.linewidth,
+    transparent: true,
+    opacity: options.opacity,
+    resolution: options.resolution,
+  });
+  const mesh = new Wireframe(
+    new WireframeGeometry2(new THREE.SphereGeometry(RADIUS * 1.001, 36, 24)),
+    material,
+  );
+  mesh.computeLineDistances();
+  return { mesh, material };
+}
+
+// Re-export Line2 and LineMaterial so Moon can use them for crater rings
+// without pulling in a separate jsm import path.
+export { Line2, LineMaterial };
 
 /**
  * Push overlapping post labels apart by adjusting their lineLengthMult.

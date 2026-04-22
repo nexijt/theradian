@@ -3,14 +3,12 @@ import * as THREE from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
-import { Wireframe } from "three/examples/jsm/lines/Wireframe.js";
-import { WireframeGeometry2 } from "three/examples/jsm/lines/WireframeGeometry2.js";
 import { CONTINENT_OUTLINES, GLOBE_LABELS } from "@/lib/globe-data";
 import type { FeedPost } from "@/hooks/useFeed";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getTagColor, normalizeTag } from "@/lib/tag-colors";
 import { RADIUS, GLOBE_EASE as EASE, GLOBE_LAG_SPEED as LAG_SPEED, GLOBE_OVERLAP_THRESH as OVERLAP_THRESH } from "@/lib/scene-constants";
-import { projectPoint, easeInOut, resolveOverlaps, type PostObjectBase } from "@/lib/sphere-utils";
+import { projectPoint, easeInOut, resolveOverlaps, createDepthMask, createSurfaceMesh, createWireframeMesh, type PostObjectBase } from "@/lib/sphere-utils";
 
 const LINE_MAX = 80;
 const WINDOW_SIZE = 10;
@@ -143,36 +141,14 @@ export default function Globe({
     camera.position.set(0, 0, 3.8);
     camera.lookAt(0, 0, 0);
 
-    // Depth mask — writes z-buffer, invisible
-    const solidMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
-      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }),
-    );
-
-    // Visible surface at 30% opacity — deep navy/ocean blue
-    const surfaceMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(RADIUS * 0.995, 48, 32),
-      new THREE.MeshBasicMaterial({
-        color: 0x071428,
-        transparent: true,
-        opacity: 0.3,
-        depthWrite: false,
-      }),
-    );
-
-    // Thick wireframe lattice using Line2 (WebGL-compatible thick lines)
-    const wireMat = new LineMaterial({
+    const solidMesh = createDepthMask();
+    const surfaceMesh = createSurfaceMesh(0x071428);
+    const { mesh: wireMesh, material: wireMat } = createWireframeMesh({
       color: 0x1a4aff,
       linewidth: 0.4,
-      transparent: true,
       opacity: 0.26,
       resolution: new THREE.Vector2(W(), H()),
     });
-    const wireMesh = new Wireframe(
-      new WireframeGeometry2(new THREE.SphereGeometry(RADIUS * 1.001, 36, 24)),
-      wireMat,
-    );
-    wireMesh.computeLineDistances();
 
     // Thick continent outlines using Line2
     const outlineMat = new LineMaterial({

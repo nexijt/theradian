@@ -3,7 +3,8 @@ import * as THREE from "three";
 import type { FeedPost } from "@/hooks/useFeed";
 import { getTagColor, normalizeTag } from "@/lib/tag-colors";
 import { RADIUS, MOON_EASE as EASE, MOON_LAG_SPEED as LAG_SPEED, MOON_OVERLAP_THRESH as OVERLAP_THRESH } from "@/lib/scene-constants";
-import { projectPoint, easeInOut, resolveOverlaps, type PostObjectBase } from "@/lib/sphere-utils";
+import { projectPoint, easeInOut, resolveOverlaps, createDepthMask, createSurfaceMesh, createWireframeMesh, Line2, LineMaterial, type PostObjectBase } from "@/lib/sphere-utils";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 
 const LINE_MAX = 75;
 const MOON_COLOR = 0x4a5060; // dark slate grey
@@ -142,51 +143,36 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
     camera.position.set(0, 0, 3.6);
     camera.lookAt(0, 0, 0);
 
-    // Depth mask — occludes geometry behind the moon surface
-    const solidMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(RADIUS * 0.997, 64, 48),
-      new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }),
-    );
-
-    // Visible surface at 30% opacity — dark lunar grey
-    const surfaceMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(RADIUS * 0.995, 48, 32),
-      new THREE.MeshBasicMaterial({
-        color: 0x12151a,
-        transparent: true,
-        opacity: 0.3,
-        depthWrite: false,
-      }),
-    );
-
-    // Wireframe mesh matches Globe's wire mesh approach
-    const wireMesh = new THREE.LineSegments(
-      new THREE.WireframeGeometry(
-        new THREE.SphereGeometry(RADIUS * 1.001, 36, 24),
-      ),
-      new THREE.LineBasicMaterial({
-        color: MOON_COLOR,
-        transparent: true,
-        opacity: 0.2,
-      }),
-    );
+    const solidMesh = createDepthMask();
+    const surfaceMesh = createSurfaceMesh(0x12151a);
+    const { mesh: wireMesh, material: wireMat } = createWireframeMesh({
+      color: MOON_COLOR,
+      linewidth: 0.3,
+      opacity: 0.2,
+      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+    });
 
     // 3D crater outlines — uniform dark-grey palette, brightness contrast creates depth
-    const rimMat = new THREE.LineBasicMaterial({
+    const rimMat = new LineMaterial({
       color: 0x737d8c, // medium-dark grey — raised rim, slightly brighter
+      linewidth: 0.6,
       transparent: true,
       opacity: 0.8,
-      linewidth: 1.2,
+      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
     });
-    const bowlMat = new THREE.LineBasicMaterial({
+    const bowlMat = new LineMaterial({
       color: 0x2e3340, // deep dark grey — shadowed bowl interior
+      linewidth: 0.4,
       transparent: true,
       opacity: 0.65,
+      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
     });
-    const peakMat = new THREE.LineBasicMaterial({
+    const peakMat = new LineMaterial({
       color: 0x5c6470, // dark grey mid-tone — central peak
+      linewidth: 0.3,
       transparent: true,
       opacity: 0.55,
+      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
     });
 
     const craterGroup = new THREE.Group();
@@ -195,40 +181,31 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
 
       // Outer rim — slightly raised above the sphere surface
       const rimPts = craterCircle(lat, lon, angR, RADIUS * 1.004, segments);
-      craterGroup.add(
-        new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(rimPts),
-          rimMat,
-        ),
-      );
+      const rimGeo = new LineGeometry();
+      rimGeo.setPositions(rimPts.flatMap((v) => [v.x, v.y, v.z]));
+      const rimLine = new Line2(rimGeo, rimMat);
+      rimLine.computeLineDistances();
+      craterGroup.add(rimLine);
 
       // Inner bowl — slightly recessed, dark to suggest shadow depth
       if (angR >= 1.0) {
         const innerSegs = Math.max(24, Math.floor(segments * 0.65));
-        const bowlPts = craterCircle(
-          lat,
-          lon,
-          angR * 0.58,
-          RADIUS * 0.999,
-          innerSegs,
-        );
-        craterGroup.add(
-          new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(bowlPts),
-            bowlMat,
-          ),
-        );
+        const bowlPts = craterCircle(lat, lon, angR * 0.58, RADIUS * 0.999, innerSegs);
+        const bowlGeo = new LineGeometry();
+        bowlGeo.setPositions(bowlPts.flatMap((v) => [v.x, v.y, v.z]));
+        const bowlLine = new Line2(bowlGeo, bowlMat);
+        bowlLine.computeLineDistances();
+        craterGroup.add(bowlLine);
       }
 
       // Central peak — only large craters have this feature
       if (angR >= 4.0) {
         const peakPts = craterCircle(lat, lon, angR * 0.12, RADIUS * 1.002, 20);
-        craterGroup.add(
-          new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(peakPts),
-            peakMat,
-          ),
-        );
+        const peakGeo = new LineGeometry();
+        peakGeo.setPositions(peakPts.flatMap((v) => [v.x, v.y, v.z]));
+        const peakLine = new Line2(peakGeo, peakMat);
+        peakLine.computeLineDistances();
+        craterGroup.add(peakLine);
       }
     });
 
@@ -246,6 +223,10 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
       camera.updateProjectionMatrix();
       overlayCanvas.width = w;
       overlayCanvas.height = h;
+      wireMat.resolution.set(w, h);
+      rimMat.resolution.set(w, h);
+      bowlMat.resolution.set(w, h);
+      peakMat.resolution.set(w, h);
     }
     resize();
     const ro = new ResizeObserver(resize);
@@ -564,12 +545,12 @@ export default function Moon({ posts, onPostClick }: MoonProps) {
       solidMesh.geometry.dispose();
       (solidMesh.material as THREE.MeshBasicMaterial).dispose();
       wireMesh.geometry.dispose();
-      (wireMesh.material as THREE.LineBasicMaterial).dispose();
+      wireMat.dispose();
       rimMat.dispose();
       bowlMat.dispose();
       peakMat.dispose();
       craterGroup.children.forEach((child) => {
-        (child as THREE.Line).geometry.dispose();
+        (child as Line2).geometry.dispose();
       });
       renderer.dispose();
     };
