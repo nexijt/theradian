@@ -4,6 +4,7 @@ import Globe from "@/components/Globe";
 import MoonScene from "@/components/Moon";
 import AuthModal from "@/components/AuthModal";
 import PostPanel from "@/components/PostPanel";
+import ClusterPanel from "@/components/ClusterPanel";
 import CreatePostSheet from "@/components/CreatePostSheet";
 import LandingOverlay from "@/components/LandingOverlay";
 import OrbitingMoon from "@/components/OrbitingMoon";
@@ -42,6 +43,7 @@ const Index = () => {
   const [changePwOpen, setChangePwOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
+  const [clusterPanelPosts, setClusterPanelPosts] = useState<import("@/hooks/useFeed").FeedPost[] | null>(null);
   const [landingOpen, setLandingOpen] = useState(() => {
     if (typeof window === "undefined") return false;
     return !localStorage.getItem(LANDING_SEEN_KEY);
@@ -121,6 +123,7 @@ const Index = () => {
         <Globe
           posts={currentPosts}
           onPostClick={onPostClick}
+          onClusterClick={setClusterPanelPosts}
           paused={!!selectedPost}
           onNeedMore={loadMore}
           selectedPostId={selectedPost?.id}
@@ -455,6 +458,13 @@ const Index = () => {
           profile={profile}
         />
       )}
+
+      {/* ── CLUSTER PANEL ───────────────────────────────────────────── */}
+      <ClusterPanel
+        posts={clusterPanelPosts}
+        onClose={() => setClusterPanelPosts(null)}
+        onPostClick={onPostClick}
+      />
 
       {/* ── LANDING OVERLAY ─────────────────────────────────────────── */}
       <LandingOverlay open={landingOpen} onEnter={dismissLanding} />

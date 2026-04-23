@@ -322,3 +322,44 @@ body::before {
     padding-top: 0;
     gap: 3px;
 }
+
+/* Cluster badge — the collapsed dot shown when multiple posts share a location */
+.post-dot.cluster-badge {
+    background: transparent;
+    border: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cluster-badge-ring {
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid var(--tag-color, hsl(var(--primary)));
+    background: color-mix(in srgb, var(--tag-color, hsl(var(--primary))) 12%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.cluster-badge-ring.cluster-large {
+    width: 28px;
+    height: 28px;
+}
+
+.post-dot.cluster-badge:hover .cluster-badge-ring {
+    transform: scale(1.2);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--tag-color, hsl(var(--primary))) 30%, transparent);
+}
+
+.cluster-badge-count {
+    font-family: "Geist Mono", monospace;
+    font-size: 0.46rem;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0;
+}

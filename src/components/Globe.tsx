@@ -11,22 +11,25 @@ import {
   RADIUS,
   GLOBE_EASE as EASE,
   GLOBE_LAG_SPEED as LAG_SPEED,
-  GLOBE_OVERLAP_THRESH as OVERLAP_THRESH,
 } from "@/lib/scene-constants";
 import {
   projectPoint,
   easeInOut,
-  resolveOverlaps,
   createDepthMask,
   createSurfaceMesh,
   createWireframeMesh,
-  type PostObjectBase,
 } from "@/lib/sphere-utils";
+import { buildClusters, type Cluster } from "@/lib/cluster-utils";
 
 const LINE_MAX = 80;
 const WINDOW_SIZE = 10;
 const MOBILE_SCALE = 0.67;
 const DESKTOP_SCALE = 1.1;
+const CLUSTER_THRESH_DEG = 0.5;
+// Angle (radians) between adjacent fan items
+const FAN_SPREAD = 22 * (Math.PI / 180);
+// How far fan items extend from the surface point (px)
+const FAN_LENGTH = LINE_MAX * 1.25;
 
 function normalizeAngle(angle: number) {
   let normalized = angle;
@@ -36,21 +39,34 @@ function normalizeAngle(angle: number) {
 }
 
 function getRotationForCenteredLongitude(lon: number) {
-  // With this globe projection, front-center longitude is: lon = -90° - rotationY(deg)
-  // => rotationY needed to center a longitude is -(lon + 90°)
   return -(lon + 90) * (Math.PI / 180);
 }
 
-interface PostObject extends PostObjectBase {
+interface ClusterObject {
+  localPos: THREE.Vector3;
+  dot: THREE.Mesh;
+  el: HTMLDivElement;
+  originEl: HTMLDivElement;
+  cluster: Cluster;
+  progress: number;
+  lagX: number | null;
+  lagY: number | null;
+  facing: number;
+  dateIndex: number;
+  tagColorRgb: [number, number, number];
   _drawnX: number;
   _drawnY: number;
   isHidden: boolean;
-  dateIndex: number;
+  // Fan state (only used for "small" clusters)
+  isExpanded: boolean;
+  fanProgress: number;
+  fanEls: HTMLDivElement[];
 }
 
 interface GlobeProps {
   posts: FeedPost[];
   onPostClick: (post: FeedPost) => void;
+  onClusterClick?: (posts: FeedPost[]) => void;
   paused?: boolean;
   onNeedMore?: () => void;
   selectedPostId?: string | null;
@@ -61,6 +77,7 @@ interface GlobeProps {
 export default function Globe({
   posts,
   onPostClick,
+  onClusterClick,
   paused,
   onNeedMore,
   selectedPostId,
@@ -76,7 +93,7 @@ export default function Globe({
     camera: THREE.PerspectiveCamera;
     spinGroup: THREE.Group;
     tiltGroup: THREE.Group;
-    postObjects: PostObject[];
+    clusterObjects: ClusterObject[];
   } | null>(null);
   const dragRef = useRef({
     isDragging: false,
@@ -103,6 +120,8 @@ export default function Globe({
   postsRef.current = posts;
   const onPostClickRef = useRef(onPostClick);
   onPostClickRef.current = onPostClick;
+  const onClusterClickRef = useRef(onClusterClick);
+  onClusterClickRef.current = onClusterClick;
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const onNeedMoreRef = useRef(onNeedMore);
@@ -110,7 +129,6 @@ export default function Globe({
   const selectedPostIdRef = useRef(selectedPostId);
   selectedPostIdRef.current = selectedPostId;
 
-  // Handle spinToLon changes
   useEffect(() => {
     if (spinToLon !== null && spinToLon !== undefined) {
       spinToLonRef.current = spinToLon;
@@ -163,7 +181,6 @@ export default function Globe({
       resolution: new THREE.Vector2(W(), H()),
     });
 
-    // Thick continent outlines using Line2
     const outlineMat = new LineMaterial({
       color: 0x1a4aff,
       linewidth: 0.8,
@@ -199,7 +216,7 @@ export default function Globe({
       camera,
       spinGroup,
       tiltGroup,
-      postObjects: [],
+      clusterObjects: [],
     };
 
     function resize() {
@@ -216,6 +233,11 @@ export default function Globe({
 
     const drag = dragRef.current;
     const AXIS_THRESHOLD = 5;
+
+    function collapseAllFans() {
+      const sc = sceneRef.current;
+      if (sc) sc.clusterObjects.forEach((c) => { c.isExpanded = false; });
+    }
 
     function onMouseDown(e: MouseEvent) {
       drag.isDragging = true;
@@ -253,22 +275,17 @@ export default function Globe({
       if (!drag.isDragging) return;
       drag.isDragging = false;
       drag.dragAxis = null;
+      if (!drag.dragMoved) {
+        // Canvas tap with no drag = collapse any open fan
+        collapseAllFans();
+      }
       drag.arTimer = setTimeout(() => {
         drag.autoRotate = true;
       }, 3500);
     }
-    function getPinchDist(e: TouchEvent) {
-      const t = e.touches;
-      const dx = t[0].clientX - t[1].clientX;
-      const dy = t[0].clientY - t[1].clientY;
-      return Math.sqrt(dx * dx + dy * dy);
-    }
 
     function onTouchStart(e: TouchEvent) {
-      if (e.touches.length === 2) {
-        // Pinch zoom disabled on mobile
-        return;
-      }
+      if (e.touches.length === 2) return;
       drag.isDragging = true;
       drag.dragMoved = false;
       drag.dragAxis = null;
@@ -278,10 +295,7 @@ export default function Globe({
       drag.autoRotate = false;
     }
     function onTouchMove(e: TouchEvent) {
-      if (e.touches.length === 2) {
-        return;
-      }
-
+      if (e.touches.length === 2) return;
       if (!drag.isDragging) return;
       const dx = e.touches[0].clientX - drag.prevX;
       const dy = e.touches[0].clientY - drag.prevY;
@@ -308,6 +322,9 @@ export default function Globe({
       drag.isPinching = false;
       drag.isDragging = false;
       drag.dragAxis = null;
+      if (!drag.dragMoved) {
+        collapseAllFans();
+      }
       drag.arTimer = setTimeout(() => {
         drag.autoRotate = true;
       }, 3500);
@@ -333,12 +350,10 @@ export default function Globe({
     const _nrm = new THREE.Vector3();
     const _mat3 = new THREE.Matrix3();
     const _toCam = new THREE.Vector3();
-    // Scratch vectors for curved label rendering (avoids per-frame allocations)
     const _cv1 = new THREE.Vector3();
     const _cv2 = new THREE.Vector3();
     const _cv3 = new THREE.Vector3();
 
-    /** Write a lat/lon sphere point into `out` without allocating */
     function toSphere(lat: number, lon: number, r: number, out: THREE.Vector3) {
       const latR = lat * (Math.PI / 180);
       const theta = (lon + 180) * (Math.PI / 180);
@@ -349,14 +364,10 @@ export default function Globe({
       );
     }
 
-    // ── Globe labels (canvas curved text) ──────────────────────────
+    // ── Globe labels ────────────────────────────────────────────────
     const labelObjects = GLOBE_LABELS.map(({ name, lat, lon, type, size }) => ({
       localPos: projectPoint(lat, lon, RADIUS),
-      name,
-      lat,
-      lon,
-      type,
-      size,
+      name, lat, lon, type, size,
       prog: 0,
       maxOpacity: type === "ocean" ? 0.52 : 0.42,
     }));
@@ -366,7 +377,6 @@ export default function Globe({
       const dark = document.documentElement.classList.contains("dark");
 
       for (const lbl of labelObjects) {
-        // Facing / fade
         _wPos.copy(lbl.localPos).applyMatrix4(spinGroup.matrixWorld);
         _nrm.copy(lbl.localPos).normalize().applyMatrix3(_mat3).normalize();
         _toCam.copy(camera.position).sub(_wPos).normalize();
@@ -380,14 +390,12 @@ export default function Globe({
         const letterSpacing = fontSize * (lbl.type === "ocean" ? 0.24 : 0.16);
         ctx2d.font = `300 ${lbl.type === "ocean" ? "italic " : ""}${fontSize}px 'Cormorant Garamond', serif`;
 
-        // Measure each character
         const chars = lbl.name.split("");
         const widths = chars.map((c) => ctx2d.measureText(c).width);
         const totalWidth =
           widths.reduce((s, w) => s + w, 0) +
           letterSpacing * Math.max(0, chars.length - 1);
 
-        // Pixels-per-degree along this latitude (sample ±3° around label centre)
         const delta = 3;
         toSphere(lbl.lat, lbl.lon - delta, RADIUS, _cv1);
         _cv1.applyMatrix4(spinGroup.matrixWorld);
@@ -399,7 +407,6 @@ export default function Globe({
           Math.sqrt((r2D.x - l2D.x) ** 2 + (r2D.y - l2D.y) ** 2) / (2 * delta);
         if (pxPerDeg < 1) continue;
 
-        // Draw each character at its sphere-projected position with local rotation
         ctx2d.fillStyle = dark
           ? `rgba(255,255,255,${opacity.toFixed(3)})`
           : `rgba(20,20,14,${opacity.toFixed(3)})`;
@@ -411,12 +418,10 @@ export default function Globe({
           const charCenter = xOff + w / 2;
           const charLon = lbl.lon + charCenter / pxPerDeg;
 
-          // Character screen position
           toSphere(lbl.lat, charLon, RADIUS, _cv1);
           _cv1.applyMatrix4(spinGroup.matrixWorld);
           const pos2D = toScreen(_cv1);
 
-          // Local tangent at this character (sample ±0.5°)
           const dd = 0.5;
           toSphere(lbl.lat, charLon - dd, RADIUS, _cv2);
           _cv2.applyMatrix4(spinGroup.matrixWorld);
@@ -443,13 +448,12 @@ export default function Globe({
     function drawOverlay() {
       const s = sceneRef.current;
       if (!s) return;
-      // Apply DPR scaling so all drawing coords stay in CSS pixels but render crisp on retina
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx2d.clearRect(0, 0, W(), H());
       _mat3.getNormalMatrix(spinGroup.matrixWorld);
 
-      const totalPosts = s.postObjects.length;
-      if (totalPosts === 0) return;
+      const totalClusters = s.clusterObjects.length;
+      if (totalClusters === 0) return;
 
       const currentRotY = spinGroup.rotation.y;
       const rotDelta = currentRotY - drag.lastRotY;
@@ -460,9 +464,7 @@ export default function Globe({
       }
 
       if (Math.abs(rotAccumRef.current) >= ROT_PER_SHIFT) {
-        const shifts = Math.floor(
-          Math.abs(rotAccumRef.current) / ROT_PER_SHIFT,
-        );
+        const shifts = Math.floor(Math.abs(rotAccumRef.current) / ROT_PER_SHIFT);
         if (rotAccumRef.current > 0) {
           windowCursorRef.current -= shifts;
         } else {
@@ -470,52 +472,53 @@ export default function Globe({
         }
         rotAccumRef.current = rotAccumRef.current % ROT_PER_SHIFT;
         windowCursorRef.current =
-          ((windowCursorRef.current % totalPosts) + totalPosts) % totalPosts;
+          ((windowCursorRef.current % totalClusters) + totalClusters) % totalClusters;
 
-        if (windowCursorRef.current + WINDOW_SIZE >= totalPosts - 5) {
+        if (windowCursorRef.current + WINDOW_SIZE >= totalClusters - 5) {
           onNeedMoreRef.current?.();
         }
       }
 
       const visibleIndices = new Set<number>();
-      for (let i = 0; i < Math.min(WINDOW_SIZE, totalPosts); i++) {
-        visibleIndices.add((windowCursorRef.current + i) % totalPosts);
+      for (let i = 0; i < Math.min(WINDOW_SIZE, totalClusters); i++) {
+        visibleIndices.add((windowCursorRef.current + i) % totalClusters);
       }
 
-      // Also keep selected post visible
       const selId = selectedPostIdRef.current;
 
-      s.postObjects.forEach((p) => {
-        const isSelected = selId === p.data.id;
-        p.isHidden = !visibleIndices.has(p.dateIndex) && !isSelected;
+      // Mark hidden / visible — also keep clusters containing the selected post visible
+      s.clusterObjects.forEach((p) => {
+        const containsSelected = selId
+          ? p.cluster.posts.some((post) => post.id === selId)
+          : false;
+        p.isHidden = !visibleIndices.has(p.dateIndex) && !containsSelected;
       });
 
-      // Report visible (non-hidden, front-facing) posts to parent
-      const visiblePosts = s.postObjects
+      // Report ALL posts in visible front-facing clusters (for next/prev navigation)
+      const visiblePosts = s.clusterObjects
         .filter((p) => !p.isHidden && p.facing > -0.1)
-        .map((p) => p.data);
+        .flatMap((p) => p.cluster.posts);
       onVisiblePostsChangeRef.current?.(visiblePosts);
 
-      s.postObjects.forEach((p) => {
+      s.clusterObjects.forEach((p) => {
+        // ── Early exit: fully hidden and faded ──
         if (p.isHidden && p.progress <= 0) {
           p.el.style.display = "none";
           p.originEl.style.display = "none";
+          p.fanEls.forEach((f) => { f.style.display = "none"; });
           return;
         }
 
+        // ── Facing / progress ──
         _wPos.copy(p.localPos).applyMatrix4(spinGroup.matrixWorld);
         _nrm.copy(p.localPos).normalize().applyMatrix3(_mat3).normalize();
-
         _toCam.copy(camera.position).sub(_wPos).normalize();
         const facing = _toCam.dot(_nrm);
         p.facing = facing;
 
-        let targetVis: number;
-        if (p.isHidden) {
-          targetVis = 0;
-        } else {
-          targetVis = Math.max(0, Math.min(1, (facing + 0.1) / 0.2));
-        }
+        const targetVis = p.isHidden
+          ? 0
+          : Math.max(0, Math.min(1, (facing + 0.1) / 0.2));
 
         p.progress += (targetVis - p.progress) * EASE;
         if (p.progress < 0.003) p.progress = 0;
@@ -525,6 +528,7 @@ export default function Globe({
         if (prog <= 0) {
           p.el.style.display = "none";
           p.originEl.style.display = "none";
+          p.fanEls.forEach((f) => { f.style.display = "none"; });
           (p.dot.material as THREE.MeshBasicMaterial).opacity = 0;
           p.lagX = null;
           p.lagY = null;
@@ -533,12 +537,9 @@ export default function Globe({
 
         const sp = toScreen(_wPos);
         const eased = easeInOut(prog);
-        (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(
-          0.45,
-          prog * 1.5,
-        );
+        (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(0.45, prog * 1.5);
 
-        // Position the pulsating origin dot at the projected post location on the globe surface
+        // ── Origin dot (pulsating pin on surface) ──
         const originAlpha = Math.max(0, Math.min(1, (facing + 0.05) / 0.25));
         if (originAlpha > 0.02) {
           p.originEl.style.display = "block";
@@ -549,10 +550,9 @@ export default function Globe({
           p.originEl.style.display = "none";
         }
 
+        // ── Outward normal direction in screen space ──
         const normalWorld = _nrm.clone();
-        const tipWorld = _wPos
-          .clone()
-          .add(normalWorld.clone().multiplyScalar(0.18));
+        const tipWorld = _wPos.clone().add(normalWorld.clone().multiplyScalar(0.18));
         const spTip = toScreen(tipWorld);
         let ndx = spTip.x - sp.x;
         let ndy = spTip.y - sp.y;
@@ -560,8 +560,9 @@ export default function Globe({
         ndx /= nlen;
         ndy /= nlen;
 
-        const targetX = sp.x + ndx * LINE_MAX * p.lineLengthMult;
-        const targetY = sp.y + ndy * LINE_MAX * p.lineLengthMult;
+        // ── Lag toward the stalk tip ──
+        const targetX = sp.x + ndx * LINE_MAX;
+        const targetY = sp.y + ndy * LINE_MAX;
 
         if (p.lagX === null) {
           p.lagX = sp.x;
@@ -570,15 +571,14 @@ export default function Globe({
         p.lagX += (targetX - p.lagX) * LAG_SPEED;
         p.lagY! += (targetY - p.lagY!) * LAG_SPEED;
 
-        const dx = p.lagX - sp.x;
-        const dy = p.lagY! - sp.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const ddx = p.lagX - sp.x;
+        const ddy = p.lagY! - sp.y;
+        const ddist = Math.sqrt(ddx * ddx + ddy * ddy);
         const maxDist = LINE_MAX * 1.6;
-        let ex = p.lagX,
-          ey = p.lagY!;
-        if (dist > maxDist) {
-          ex = sp.x + (dx / dist) * maxDist;
-          ey = sp.y + (dy / dist) * maxDist;
+        let ex = p.lagX, ey = p.lagY!;
+        if (ddist > maxDist) {
+          ex = sp.x + (ddx / ddist) * maxDist;
+          ey = sp.y + (ddy / ddist) * maxDist;
           p.lagX = ex;
           p.lagY = ey;
         }
@@ -586,54 +586,145 @@ export default function Globe({
         const midX = sp.x + (ex - sp.x) * eased;
         const midY = sp.y + (ey - sp.y) * eased;
 
-        // Determine if this post is selected
-        const isSelected = selId === p.data.id;
-
         const [tr, tg, tb] = p.tagColorRgb;
-        if (eased > 0.01) {
-          ctx2d.beginPath();
-          ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
-          ctx2d.lineTo(Math.round(midX), Math.round(midY));
-          ctx2d.strokeStyle = isSelected
-            ? `rgba(${tr},${tg},${tb},${0.95 * eased})`
-            : `rgba(${tr},${tg},${tb},${0.55 * eased})`;
-          ctx2d.lineWidth = isSelected ? 2 : 1.3;
-          ctx2d.stroke();
+
+        // ── Fan animation progress ──
+        const targetFanProg = p.isExpanded ? 1 : 0;
+        p.fanProgress += (targetFanProg - p.fanProgress) * 0.08;
+        const fp = p.fanProgress;
+        const fanEased = easeInOut(Math.min(1, fp));
+
+        const clusterSize = p.cluster.size;
+
+        // ═══════════════════════════════════════════════════════════════
+        // SINGLE POST — original behaviour, unchanged
+        // ═══════════════════════════════════════════════════════════════
+        if (clusterSize === "single") {
+          const isSelected = selId === p.cluster.posts[0].id;
+
+          if (eased > 0.01) {
+            ctx2d.beginPath();
+            ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
+            ctx2d.lineTo(Math.round(midX), Math.round(midY));
+            ctx2d.strokeStyle = isSelected
+              ? `rgba(${tr},${tg},${tb},${0.95 * eased})`
+              : `rgba(${tr},${tg},${tb},${0.55 * eased})`;
+            ctx2d.lineWidth = isSelected ? 2 : 1.3;
+            ctx2d.stroke();
+          }
+
+          const dotFadeStart = 0.55;
+          if (prog > dotFadeStart) {
+            const dotAlpha = Math.min(1, (prog - dotFadeStart) / 0.25);
+            p.el.style.display = "block";
+            p.el.style.left = midX + "px";
+            p.el.style.top = midY + "px";
+            p.el.style.opacity = String(dotAlpha);
+            p.el.style.pointerEvents = dotAlpha > 0.4 ? "all" : "none";
+            if (isSelected) {
+              p.el.classList.add("post-dot-selected");
+            } else {
+              p.el.classList.remove("post-dot-selected");
+            }
+          } else {
+            p.el.style.display = "none";
+          }
+          return;
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // MULTI-POST CLUSTER (small = fan / large = panel)
+        // ═══════════════════════════════════════════════════════════════
+
         const dotFadeStart = 0.55;
-        if (prog > dotFadeStart) {
-          const dotAlpha = Math.min(1, (prog - dotFadeStart) / 0.25);
+        const dotAlpha =
+          prog > dotFadeStart ? Math.min(1, (prog - dotFadeStart) / 0.25) : 0;
+
+        // Badge stalk — fades out as fan opens
+        if (eased > 0.01) {
+          const stalkAlpha = eased * 0.55 * (1 - fanEased * 0.85);
+          if (stalkAlpha > 0.01) {
+            ctx2d.beginPath();
+            ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
+            ctx2d.lineTo(Math.round(midX), Math.round(midY));
+            ctx2d.strokeStyle = `rgba(${tr},${tg},${tb},${stalkAlpha})`;
+            ctx2d.lineWidth = 1.3;
+            ctx2d.stroke();
+          }
+        }
+
+        // Badge el — fades when fan is open so items are visible
+        if (dotAlpha > 0) {
+          const badgeAlpha = dotAlpha * (1 - fanEased * 0.7);
           p.el.style.display = "block";
           p.el.style.left = midX + "px";
           p.el.style.top = midY + "px";
-          p.el.style.opacity = String(dotAlpha);
+          p.el.style.opacity = String(badgeAlpha);
           p.el.style.pointerEvents = dotAlpha > 0.4 ? "all" : "none";
-
-          // Highlight selected post
-          if (isSelected) {
-            p.el.classList.add("post-dot-selected");
-          } else {
-            p.el.classList.remove("post-dot-selected");
-          }
         } else {
           p.el.style.display = "none";
         }
-      });
 
-      resolveOverlaps(s.postObjects, OVERLAP_THRESH);
+        // ── Fan items (small clusters only) ──
+        if (clusterSize === "small" && fp > 0.005) {
+          const n = p.cluster.posts.length;
+          const baseAngle = Math.atan2(ndy, ndx);
+
+          for (let i = 0; i < n; i++) {
+            const post = p.cluster.posts[i];
+            const fanColor = getTagColor(post.tag, post.type);
+            const [fr, fg, fb] = fanColor.rgb;
+
+            const angleOffset = (i - (n - 1) / 2) * FAN_SPREAD;
+            const fanAngle = baseAngle + angleOffset;
+            const fdx = Math.cos(fanAngle);
+            const fdy = Math.sin(fanAngle);
+
+            // Fan item target position (expanded)
+            const expandedX = sp.x + fdx * FAN_LENGTH;
+            const expandedY = sp.y + fdy * FAN_LENGTH;
+
+            // Interpolate from badge position to fan position
+            const fanX = midX + (expandedX - midX) * fanEased;
+            const fanY = midY + (expandedY - midY) * fanEased;
+
+            // Draw fan stalk
+            ctx2d.beginPath();
+            ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
+            ctx2d.lineTo(Math.round(fanX), Math.round(fanY));
+            ctx2d.strokeStyle = `rgba(${fr},${fg},${fb},${fp * 0.65 * eased})`;
+            ctx2d.lineWidth = 1.3;
+            ctx2d.stroke();
+
+            const fanEl = p.fanEls[i];
+            const isSelected = selId === post.id;
+            fanEl.style.display = "block";
+            fanEl.style.left = fanX + "px";
+            fanEl.style.top = fanY + "px";
+            fanEl.style.opacity = String(fp * Math.min(1, eased));
+            fanEl.style.pointerEvents = fp > 0.5 ? "all" : "none";
+            if (isSelected) {
+              fanEl.classList.add("post-dot-selected");
+            } else {
+              fanEl.classList.remove("post-dot-selected");
+            }
+          }
+        } else if (clusterSize === "small") {
+          // Fully collapsed — hide all fan items
+          p.fanEls.forEach((f) => {
+            f.style.display = "none";
+            f.style.pointerEvents = "none";
+          });
+        }
+      });
     }
 
     let animId: number;
     function animate() {
       animId = requestAnimationFrame(animate);
 
-      // Handle spinToLon — smoothly rotate to target longitude
       if (spinToLonRef.current !== null) {
-        // Map longitude to the exact Y-rotation that puts that longitude at front-center
-        const targetRotY = getRotationForCenteredLongitude(
-          spinToLonRef.current,
-        );
+        const targetRotY = getRotationForCenteredLongitude(spinToLonRef.current);
         const diff = normalizeAngle(targetRotY - spinGroup.rotation.y);
 
         if (Math.abs(diff) < 0.005) {
@@ -674,15 +765,17 @@ export default function Globe({
     };
   }, []);
 
-  // Update post objects when posts change
+  // ── Build cluster objects whenever posts change ───────────────────
   useEffect(() => {
     const s = sceneRef.current;
     const dotsContainer = dotsRef.current;
     if (!s || !dotsContainer) return;
 
-    s.postObjects.forEach((p) => {
+    // Tear down existing objects
+    s.clusterObjects.forEach((p) => {
       p.el.style.display = "none";
       p.originEl.style.display = "none";
+      p.fanEls.forEach((f) => { f.style.display = "none"; f.remove(); });
       s.spinGroup.remove(p.dot);
       p.el.remove();
       p.originEl.remove();
@@ -693,16 +786,20 @@ export default function Globe({
       ctx?.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     }
 
+    // Sort newest-first then cluster
     const sorted = [...posts].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
+    const clusters = buildClusters(sorted, CLUSTER_THRESH_DEG);
 
-    s.postObjects = sorted.map((post, dateIndex) => {
-      const localPos = projectPoint(post.lat, post.lon, RADIUS);
-      const tagColor = getTagColor(post.tag, post.type);
+    s.clusterObjects = clusters.map((cluster, dateIndex) => {
+      const localPos = projectPoint(cluster.centroidLat, cluster.centroidLon, RADIUS);
+      const primaryPost = cluster.posts[0];
+      const tagColor = getTagColor(primaryPost.tag, primaryPost.type);
+
+      const dotRadius = cluster.size === "single" ? 0.007 : 0.009;
       const dot = new THREE.Mesh(
-        new THREE.SphereGeometry(0.007, 8, 8),
+        new THREE.SphereGeometry(dotRadius, 8, 8),
         new THREE.MeshBasicMaterial({
           color: tagColor.hexNum,
           transparent: true,
@@ -712,63 +809,125 @@ export default function Globe({
       dot.position.copy(localPos);
       s.spinGroup.add(dot);
 
+      // ── Main element ──
       const el = document.createElement("div");
-      el.className = "post-dot type-" + post.type;
       el.style.display = "none";
       el.style.opacity = "0";
       el.style.setProperty("--tag-color", tagColor.hex);
 
-      const normalizedTag = normalizeTag(post.tag, post.type);
-      const tagLabel = `[${normalizedTag}]`;
-      if (post.type === "photo") {
-        const snippet =
-          (post.caption || "").split(" ").slice(0, 4).join(" ") + "…";
-        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:${tagColor.hex};text-align:center">${tagLabel}</div><div style="font-size:0.66rem;font-style:italic;color:hsl(var(--muted-foreground));white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${snippet}</div>`;
-      } else if (post.type === "audio") {
-        const bars = Array.from({ length: 7 }, () => {
-          const dur = (0.35 + Math.random() * 0.5).toFixed(2);
-          const del = (Math.random() * 0.4).toFixed(2);
-          return `<div class="voice-bar" style="--dur:${dur}s;animation-delay:${del}s"></div>`;
-        }).join("");
-        el.innerHTML = `<div class="font-mono-ui" style="font-size:0.42rem;letter-spacing:0.1em;text-transform:uppercase;color:${tagColor.hex};line-height:1;text-align:center">${tagLabel}</div><div class="voice-bars">${bars}</div>`;
+      if (cluster.size === "single") {
+        // Identical to previous single-post rendering
+        el.className = "post-dot type-" + primaryPost.type;
+        const normalizedTag = normalizeTag(primaryPost.tag, primaryPost.type);
+        const tagLabel = `[${normalizedTag}]`;
+        if (primaryPost.type === "photo") {
+          const snippet =
+            (primaryPost.caption || "").split(" ").slice(0, 4).join(" ") + "…";
+          el.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:${tagColor.hex};text-align:center">${tagLabel}</div><div style="font-size:0.66rem;font-style:italic;color:hsl(var(--muted-foreground));white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${(primaryPost.caption || "").split(" ").slice(0, 4).join(" ")}…</div>`;
+        } else if (primaryPost.type === "audio") {
+          const bars = Array.from({ length: 7 }, () => {
+            const dur = (0.35 + Math.random() * 0.5).toFixed(2);
+            const del = (Math.random() * 0.4).toFixed(2);
+            return `<div class="voice-bar" style="--dur:${dur}s;animation-delay:${del}s"></div>`;
+          }).join("");
+          el.innerHTML = `<div class="font-mono-ui" style="font-size:0.42rem;letter-spacing:0.1em;text-transform:uppercase;color:${tagColor.hex};line-height:1;text-align:center">${tagLabel}</div><div class="voice-bars">${bars}</div>`;
+        }
+      } else {
+        // Cluster badge
+        const ringClass = cluster.size === "large" ? "cluster-badge-ring cluster-large" : "cluster-badge-ring";
+        el.className = "post-dot cluster-badge";
+        el.innerHTML = `<div class="${ringClass}" style="border-color:${tagColor.hex};background:color-mix(in srgb,${tagColor.hex} 12%,transparent)"><span class="cluster-badge-count" style="color:${tagColor.hex}">${cluster.posts.length}</span></div>`;
       }
 
+      // ── Click handler ──
+      // (clusterObj declared below, assigned after — safe since click only fires after assignment)
+      let clusterObj!: ClusterObject;
       el.addEventListener("click", (e) => {
         e.stopPropagation();
-        onPostClickRef.current(post);
+        const sc = sceneRef.current;
+        if (!sc) return;
+        if (cluster.size === "single") {
+          onPostClickRef.current(cluster.posts[0]);
+        } else if (cluster.size === "small") {
+          const wasExpanded = clusterObj.isExpanded;
+          sc.clusterObjects.forEach((c) => { c.isExpanded = false; });
+          if (!wasExpanded) clusterObj.isExpanded = true;
+        } else {
+          onClusterClickRef.current?.(cluster.posts);
+        }
       });
 
       el.addEventListener("dblclick", (e) => {
         e.stopPropagation();
-        spinToLonRef.current = post.lon;
+        spinToLonRef.current = cluster.centroidLon;
       });
 
       dotsContainer.appendChild(el);
 
-      // Pulsating origin dot — pinned to the projected post location
+      // ── Pulsating origin dot ──
       const originEl = document.createElement("div");
       originEl.className = "globe-origin-dot";
       originEl.style.display = "none";
       originEl.style.setProperty("--tag-color", tagColor.hex);
       dotsContainer.appendChild(originEl);
 
-      return {
+      // ── Fan elements (small clusters only) ──
+      const fanEls: HTMLDivElement[] = [];
+      if (cluster.size === "small") {
+        for (let i = 0; i < cluster.posts.length; i++) {
+          const post = cluster.posts[i];
+          const fanColor = getTagColor(post.tag, post.type);
+          const fanEl = document.createElement("div");
+          fanEl.className = "post-dot type-" + post.type;
+          fanEl.style.display = "none";
+          fanEl.style.opacity = "0";
+          fanEl.style.setProperty("--tag-color", fanColor.hex);
+
+          const fanNormalizedTag = normalizeTag(post.tag, post.type);
+          const fanTagLabel = `[${fanNormalizedTag}]`;
+          if (post.type === "photo") {
+            fanEl.innerHTML = `<div class="font-mono-ui" style="font-size:0.44rem;letter-spacing:0.12em;text-transform:uppercase;color:${fanColor.hex};text-align:center">${fanTagLabel}</div><div style="font-size:0.66rem;font-style:italic;color:hsl(var(--muted-foreground));white-space:nowrap;max-width:78px;overflow:hidden;text-overflow:ellipsis;text-align:center">${(post.caption || "").split(" ").slice(0, 4).join(" ")}…</div>`;
+          } else if (post.type === "audio") {
+            const bars = Array.from({ length: 7 }, () => {
+              const dur = (0.35 + Math.random() * 0.5).toFixed(2);
+              const del = (Math.random() * 0.4).toFixed(2);
+              return `<div class="voice-bar" style="--dur:${dur}s;animation-delay:${del}s"></div>`;
+            }).join("");
+            fanEl.innerHTML = `<div class="font-mono-ui" style="font-size:0.42rem;letter-spacing:0.1em;text-transform:uppercase;color:${fanColor.hex};line-height:1;text-align:center">${fanTagLabel}</div><div class="voice-bars">${bars}</div>`;
+          }
+
+          fanEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            clusterObj.isExpanded = false;
+            onPostClickRef.current(post);
+          });
+
+          dotsContainer.appendChild(fanEl);
+          fanEls.push(fanEl);
+        }
+      }
+
+      clusterObj = {
         localPos,
         dot,
         el,
         originEl,
-        data: post,
+        cluster,
         progress: 0,
         lagX: null,
         lagY: null,
-        _drawnX: 0,
-        _drawnY: 0,
-        lineLengthMult: 1.0,
-        isHidden: true,
         facing: 0,
         dateIndex,
         tagColorRgb: tagColor.rgb,
+        _drawnX: 0,
+        _drawnY: 0,
+        isHidden: true,
+        isExpanded: false,
+        fanProgress: 0,
+        fanEls,
       };
+
+      return clusterObj;
     });
 
     windowCursorRef.current = 0;
