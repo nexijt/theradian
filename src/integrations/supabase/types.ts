@@ -47,6 +47,30 @@ export type Database = {
         }
         Relationships: []
       }
+      reports: {
+        Row: {
+          id: string
+          post_id: string
+          reporter_id: string | null
+          reason: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          reporter_id?: string | null
+          reason: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          reporter_id?: string | null
+          reason?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           caption: string | null
