@@ -12,11 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Environment variables
-.env
-.env.*
-!.env.example
-
 # Claude Code local config
 .claude/
 
@@ -33,4 +28,3 @@ dist-ssr
 scripts/seed-test-posts.sql
 scripts/seed-test-posts.js
 scripts/seed-tokyo-apr21.sql
-supabase/migrations/20260424000000_add_reports_table.sql
