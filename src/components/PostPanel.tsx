@@ -4,6 +4,7 @@ import type { FeedPost } from "@/hooks/useFeed";
 import AudioPlayer from "./AudioPlayer";
 import { getTagColor, normalizeTag } from "@/lib/tag-colors";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PostPanelProps {
@@ -18,6 +19,7 @@ type ReportReason = "inappropriate" | "ai-generated";
 
 export default function PostPanel({ post, onClose, onNext, onPrev, onUserClick }: PostPanelProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportView, setReportView] = useState(false);
   const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
@@ -60,13 +62,18 @@ export default function PostPanel({ post, onClose, onNext, onPrev, onUserClick }
   const handleSubmitReport = async () => {
     if (!selectedReason || !user) return;
     setSubmitting(true);
-    await supabase.from("reports").insert({
-      post_id: post.id,
-      reporter_id: user.id,
-      reason: selectedReason,
-    });
+    try {
+      const { error } = await supabase.from("reports").insert({
+        post_id: post.id,
+        reporter_id: user.id,
+        reason: selectedReason,
+      });
+      if (error) throw error;
+      setSubmitted(true);
+    } catch {
+      toast({ title: "Failed to submit report. Please try again.", variant: "destructive" });
+    }
     setSubmitting(false);
-    setSubmitted(true);
   };
 
   const handleCloseReport = () => {
@@ -216,7 +223,12 @@ export default function PostPanel({ post, onClose, onNext, onPrev, onUserClick }
                 {post.mediaUrl ? (
                   <img src={post.mediaUrl} alt={post.caption} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="font-mono text-[0.6rem] text-muted-foreground tracking-[0.1em]">[ Photo ]</span>
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-30">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <span className="font-mono text-[0.52rem] tracking-[0.14em] uppercase text-muted-foreground">no image</span>
+                  </div>
                 )}
               </div>
               {onNext && (
@@ -244,8 +256,17 @@ export default function PostPanel({ post, onClose, onNext, onPrev, onUserClick }
                 {post.mediaUrl ? (
                   <AudioPlayer src={post.mediaUrl} />
                 ) : (
-                  <div className="w-full aspect-square rounded-full bg-secondary flex items-center justify-center">
-                    <span className="font-mono text-[0.6rem] text-muted-foreground tracking-[0.1em]">[ Audio ]</span>
+                  <div className="w-full rounded-lg bg-secondary px-4 py-5 flex items-center gap-3 opacity-30">
+                    <div className="w-9 h-9 rounded-full border border-foreground/20 flex items-center justify-center flex-shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-foreground ml-0.5">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                      </svg>
+                    </div>
+                    <div className="flex items-center gap-[2px] flex-1 h-8">
+                      {Array.from({ length: 28 }, (_, i) => (
+                        <div key={i} className="flex-1 rounded-sm bg-foreground/40" style={{ height: `${20 + Math.sin(i * 0.8) * 14 + Math.cos(i * 1.3) * 8}%` }} />
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
