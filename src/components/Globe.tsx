@@ -718,6 +718,20 @@ export default function Globe({
           });
         }
       });
+
+      // ── Back-to-front DOM sort (painter's algorithm) ──
+      // Re-append all elements in back-to-front facing order so that posts
+      // closer to the viewer are painted last (on top), regardless of insertion order.
+      const dc = dotsRef.current;
+      if (dc) {
+        [...s.clusterObjects]
+          .sort((a, b) => a.facing - b.facing)
+          .forEach((p) => {
+            dc.appendChild(p.originEl);
+            dc.appendChild(p.el);
+            p.fanEls.forEach((f) => dc.appendChild(f));
+          });
+      }
     }
 
     let animId: number;
