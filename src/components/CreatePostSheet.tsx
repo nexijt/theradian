@@ -124,9 +124,7 @@ export default function CreatePostSheet({ open, onClose, userId, onPostCreated }
         city = geo.city;
         country = geo.country;
       } catch {
-        toast({ title: "Location unavailable — your post will appear at a random spot on the globe.", variant: "destructive" });
-        lat = -10 + Math.random() * 20;
-        lon = -170 + Math.random() * 40;
+        toast({ title: "Location unavailable — your post will appear floating on the globe." });
       }
 
       await createPost({

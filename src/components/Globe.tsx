@@ -57,6 +57,7 @@ interface ClusterObject {
   _drawnX: number;
   _drawnY: number;
   isHidden: boolean;
+  pinless: boolean; // no real coordinates — omit origin dot and stalk line
   // Fan state (only used for "small" clusters)
   isExpanded: boolean;
   fanProgress: number;
@@ -539,9 +540,9 @@ export default function Globe({
         const eased = easeInOut(prog);
         (p.dot.material as THREE.MeshBasicMaterial).opacity = Math.min(0.45, prog * 1.5);
 
-        // ── Origin dot (pulsating pin on surface) ──
+        // ── Origin dot (pulsating pin on surface) — hidden for pinless posts ──
         const originAlpha = Math.max(0, Math.min(1, (facing + 0.05) / 0.25));
-        if (originAlpha > 0.02) {
+        if (!p.pinless && originAlpha > 0.02) {
           p.originEl.style.display = "block";
           p.originEl.style.left = sp.x + "px";
           p.originEl.style.top = sp.y + "px";
@@ -602,7 +603,7 @@ export default function Globe({
         if (clusterSize === "single") {
           const isSelected = selId === p.cluster.posts[0].id;
 
-          if (eased > 0.01) {
+          if (!p.pinless && eased > 0.01) {
             ctx2d.beginPath();
             ctx2d.moveTo(Math.round(sp.x), Math.round(sp.y));
             ctx2d.lineTo(Math.round(midX), Math.round(midY));
@@ -640,8 +641,8 @@ export default function Globe({
         const dotAlpha =
           prog > dotFadeStart ? Math.min(1, (prog - dotFadeStart) / 0.25) : 0;
 
-        // Badge stalk — fades out as fan opens
-        if (eased > 0.01) {
+        // Badge stalk — fades out as fan opens, hidden for pinless posts
+        if (!p.pinless && eased > 0.01) {
           const stalkAlpha = eased * 0.55 * (1 - fanEased * 0.85);
           if (stalkAlpha > 0.01) {
             ctx2d.beginPath();
@@ -922,6 +923,7 @@ export default function Globe({
         _drawnX: 0,
         _drawnY: 0,
         isHidden: true,
+        pinless: cluster.posts[0].pinless ?? false,
         isExpanded: false,
         fanProgress: 0,
         fanEls,

@@ -16,6 +16,7 @@ export interface FeedPost {
   displayName?: string;
   tag?: string;
   createdAt: string; // ISO string for ordering
+  pinless?: boolean; // true when post has no real coordinates (shown floating, no globe pin)
 }
 
 function formatPostTime(dateStr: string): string {
@@ -37,10 +38,11 @@ function formatPostTime(dateStr: string): string {
 }
 
 export function postToFeedPost(post: PostWithProfile, time: string, locationFallback = "Unknown"): FeedPost {
+  const hasLocation = post.latitude != null && post.longitude != null;
   return {
     id: post.id,
-    lat: post.latitude || 0,
-    lon: post.longitude || 0,
+    lat: hasLocation ? post.latitude! : (Math.random() * 140 - 70),
+    lon: hasLocation ? post.longitude! : (Math.random() * 360 - 180),
     user: post.username,
     location: [post.city, post.country].filter(Boolean).join(", ") || locationFallback,
     caption: post.caption || "",
@@ -50,6 +52,7 @@ export function postToFeedPost(post: PostWithProfile, time: string, locationFall
     displayName: post.display_name || undefined,
     tag: post.tag || undefined,
     createdAt: post.created_at,
+    pinless: !hasLocation,
   };
 }
 
