@@ -358,8 +358,8 @@ body::before {
 
 .cluster-badge-count {
     font-family: "Geist Mono", monospace;
-    font-size: 0.46rem;
-    font-weight: 400;
+    font-size: 0.52rem;
+    font-weight: 600;
     line-height: 1;
     letter-spacing: 0;
 }

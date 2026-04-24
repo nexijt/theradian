@@ -837,7 +837,7 @@ export default function Globe({
         // Cluster badge
         const ringClass = cluster.size === "large" ? "cluster-badge-ring cluster-large" : "cluster-badge-ring";
         el.className = "post-dot cluster-badge";
-        el.innerHTML = `<div class="${ringClass}" style="border-color:${tagColor.hex};background:color-mix(in srgb,${tagColor.hex} 12%,transparent)"><span class="cluster-badge-count" style="color:${tagColor.hex}">${cluster.posts.length}</span></div>`;
+        el.innerHTML = `<div class="${ringClass}" style="border-color:${tagColor.hex};background:color-mix(in srgb,${tagColor.hex} 20%,transparent)"><span class="cluster-badge-count" style="color:${tagColor.hex}">${cluster.posts.length}</span></div>`;
       }
 
       // ── Click handler ──
