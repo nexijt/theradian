@@ -52,16 +52,13 @@ export async function signIn(emailOrUsername: string, password: string) {
 
   // If input doesn't look like an email, treat it as a username and look up the email.
   if (!email.includes("@")) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("email")
-      .ilike("username", cleanUsername(email))
-      .maybeSingle();
+    const { data: lookedUpEmail, error: rpcError } = await supabase
+      .rpc("get_email_by_username", { _username: cleanUsername(email) });
 
-    if (!profile?.email) {
+    if (rpcError || !lookedUpEmail) {
       throw new Error("No account found with that username");
     }
-    email = profile.email;
+    email = lookedUpEmail as string;
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({

@@ -34,7 +34,7 @@ export default function ProfileMenu({
   const { toast } = useToast();
   const verified = !!user.email_confirmed_at;
   const username = profile?.username ?? user.email?.split("@")[0] ?? "user";
-  const email = user.email ?? profile?.email ?? "";
+  const email = user.email ?? "";
 
   const handleResend = async (e: React.MouseEvent) => {
     e.preventDefault();

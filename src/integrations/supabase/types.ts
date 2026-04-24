@@ -95,7 +95,6 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string | null
-          email: string | null
           id: string
           user_id: string
           username: string
@@ -105,7 +104,6 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
-          email?: string | null
           id?: string
           user_id: string
           username: string
@@ -115,7 +113,6 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
-          email?: string | null
           id?: string
           user_id?: string
           username?: string
@@ -159,7 +156,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_email_by_username: { Args: { _username: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
