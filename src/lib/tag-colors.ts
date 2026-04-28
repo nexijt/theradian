@@ -66,14 +66,6 @@ export const AUDIO_TAG_COLORS: Record<string, TagColor> = {
 const DEFAULT_PHOTO = PHOTO_TAG_COLORS.PHOTO;
 const DEFAULT_AUDIO = AUDIO_TAG_COLORS.MUSIC;
 
-// Map legacy tag names → new tag names
-const LEGACY_MAP: Record<string, string> = {
-  DESIGN: "PIXEL",
-  WRITING_PHOTO: "INK",
-  WRITING_AUDIO: "SPOKEN",
-  SFX: "SOUND",
-};
-
 export function normalizeTag(tag: string | undefined, type: PostType): string {
   if (!tag) return type === "photo" ? "PHOTO" : "MUSIC";
   const upper = tag.toUpperCase();
