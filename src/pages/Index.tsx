@@ -52,6 +52,7 @@ const Index = () => {
     });
   };
 
+  const [timelineHovered, setTimelineHovered] = useState(false);
   const [authModal, setAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [createOpen, setCreateOpen] = useState(false);
@@ -393,7 +394,7 @@ const Index = () => {
       <div
         className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 font-mono text-[0.5rem] sm:text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground z-50 pointer-events-none whitespace-nowrap"
         style={{
-          opacity: cleanView ? 0 : sceneView === "earth" ? (showHint ? 1 : 0) : 1,
+          opacity: cleanView ? 0 : sceneView === "earth" ? (timelineHovered ? 0 : 1) : 1,
           transition: "opacity 0.6s ease",
         }}
       >
@@ -537,6 +538,7 @@ const Index = () => {
         <GlobeTimeline
           rotationRef={globeRotationRef}
           rotateDeltaRef={globeRotateDeltaRef}
+          onHoverChange={setTimelineHovered}
         />
       )}
 

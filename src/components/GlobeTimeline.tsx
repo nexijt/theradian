@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CONTINENT_OUTLINES } from "@/lib/globe-data";
 
 interface GlobeTimelineProps {
   rotationRef: React.MutableRefObject<number>;
   rotateDeltaRef: React.MutableRefObject<number>;
+  onHoverChange?: (hovered: boolean) => void;
 }
 
 const HEIGHT = 38; // timeline strip height in px
@@ -16,6 +17,9 @@ const LAT_MAX = 75;
 
 // Natural equirectangular tile width: width/height = 360° / (LAT_MAX×2), no horizontal stretch
 const TILE_WIDTH = Math.round(HEIGHT * (360 / (LAT_MAX * 2))); // = 108px
+
+// Horizontal inset at the top corners for the 30° angled edges (bottom wider, top narrower)
+const ANGLE_OFFSET = Math.round(HEIGHT * Math.tan((30 * Math.PI) / 180)); // ≈ 22px
 
 // Build the offscreen map tile at full physical resolution (dpr-aware, no blur)
 function buildMapTile(darkMode: boolean, dpr: number): HTMLCanvasElement {
@@ -56,7 +60,14 @@ function buildMapTile(darkMode: boolean, dpr: number): HTMLCanvasElement {
 export default function GlobeTimeline({
   rotationRef,
   rotateDeltaRef,
+  onHoverChange,
 }: GlobeTimelineProps) {
+  const [hovered, setHovered] = useState(false);
+
+  const handleHover = (value: boolean) => {
+    setHovered(value);
+    onHoverChange?.(value);
+  };
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mapTileRef = useRef<HTMLCanvasElement | null>(null);
   const dprRef = useRef(Math.min(window.devicePixelRatio || 1, 2));
@@ -110,7 +121,7 @@ export default function GlobeTimeline({
       ctx.clearRect(0, 0, W, HEIGHT);
 
       // Globe rotates right → map scrolls right; PHASE_OFFSET fine-tunes alignment
-      const PHASE_OFFSET = 0.39 * TILE_WIDTH;
+      const PHASE_OFFSET = 0.07 * TILE_WIDTH;
       const scrollOffset =
         (rotationRef.current / (2 * Math.PI)) * TILE_WIDTH + PHASE_OFFSET;
       const wrapped = ((scrollOffset % TILE_WIDTH) + TILE_WIDTH) % TILE_WIDTH;
@@ -122,20 +133,8 @@ export default function GlobeTimeline({
         ctx.drawImage(tile, startX + i * TILE_WIDTH, 0, TILE_WIDTH, HEIGHT);
       }
 
-      // Vignette — heavy fade at edges to give the panel a contained look
-      const vignette = ctx.createLinearGradient(0, 0, W, 0);
-      const dark = document.documentElement.classList.contains("dark");
-      const bg = dark ? "rgba(10,10,10," : "rgba(245,240,232,";
-      vignette.addColorStop(0, bg + "1)");
-      vignette.addColorStop(0.18, bg + "0.2)");
-      vignette.addColorStop(0.3, bg + "0)");
-      vignette.addColorStop(0.7, bg + "0)");
-      vignette.addColorStop(0.82, bg + "0.2)");
-      vignette.addColorStop(1, bg + "1)");
-      ctx.fillStyle = vignette;
-      ctx.fillRect(0, 0, W, HEIGHT);
-
       // Batch boundary markers
+      const dark = document.documentElement.classList.contains("dark");
       ctx.strokeStyle = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
       ctx.lineWidth = 1;
       ctx.setLineDash([2, 3]);
@@ -223,19 +222,20 @@ export default function GlobeTimeline({
 
   return (
     <div
+      onMouseEnter={() => handleHover(true)}
+      onMouseLeave={() => handleHover(false)}
       style={{
         position: "fixed",
         bottom: 0,
-        left: "40%",
-        right: "40%",
+        left: "30%",
+        right: "30%",
         height: HEIGHT,
         zIndex: 20,
-        borderTop: "1px solid rgba(128,128,128,0.2)",
-        borderLeft: "1px solid rgba(128,128,128,0.12)",
-        borderRight: "1px solid rgba(128,128,128,0.12)",
-        borderRadius: "6px 6px 0 0",
-        pointerEvents: "none",
+        opacity: 0.8,
+        border: `1px solid ${hovered ? "hsl(var(--border))" : "transparent"}`,
+        transition: "border-color 0.35s ease",
         overflow: "hidden",
+        clipPath: `polygon(${ANGLE_OFFSET}px 0%, calc(100% - ${ANGLE_OFFSET}px) 0%, 100% 100%, 0% 100%)`,
       }}
     >
       <canvas
@@ -245,7 +245,9 @@ export default function GlobeTimeline({
           height: HEIGHT,
           display: "block",
           cursor: "ew-resize",
-          pointerEvents: "auto",
+          opacity: hovered ? 1 : 0,
+          transition: "opacity 0.35s ease",
+          pointerEvents: hovered ? "auto" : "none",
         }}
       />
     </div>
