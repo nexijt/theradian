@@ -73,6 +73,9 @@ interface GlobeProps {
   selectedPostId?: string | null;
   spinToLon?: number | null;
   onVisiblePostsChange?: (visiblePosts: FeedPost[]) => void;
+  rotationRef?: React.MutableRefObject<number>;
+  rotateDeltaRef?: React.MutableRefObject<number>;
+  cleanView?: boolean;
 }
 
 export default function Globe({
@@ -84,6 +87,9 @@ export default function Globe({
   selectedPostId,
   spinToLon,
   onVisiblePostsChange,
+  rotationRef,
+  rotateDeltaRef,
+  cleanView,
 }: GlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -115,6 +121,8 @@ export default function Globe({
   const spinToLonRef = useRef<number | null>(null);
   const onVisiblePostsChangeRef = useRef(onVisiblePostsChange);
   onVisiblePostsChangeRef.current = onVisiblePostsChange;
+  const cleanViewRef = useRef(cleanView);
+  cleanViewRef.current = cleanView;
   const isMobile = useIsMobile();
 
   const postsRef = useRef(posts);
@@ -621,7 +629,7 @@ export default function Globe({
             p.el.style.left = midX + "px";
             p.el.style.top = midY + "px";
             p.el.style.opacity = String(dotAlpha);
-            p.el.style.pointerEvents = dotAlpha > 0.4 ? "all" : "none";
+            p.el.style.pointerEvents = !cleanViewRef.current && dotAlpha > 0.4 ? "all" : "none";
             if (isSelected) {
               p.el.classList.add("post-dot-selected");
             } else {
@@ -661,7 +669,7 @@ export default function Globe({
           p.el.style.left = midX + "px";
           p.el.style.top = midY + "px";
           p.el.style.opacity = String(badgeAlpha);
-          p.el.style.pointerEvents = dotAlpha > 0.4 ? "all" : "none";
+          p.el.style.pointerEvents = !cleanViewRef.current && dotAlpha > 0.4 ? "all" : "none";
         } else {
           p.el.style.display = "none";
         }
@@ -703,7 +711,7 @@ export default function Globe({
             fanEl.style.left = fanX + "px";
             fanEl.style.top = fanY + "px";
             fanEl.style.opacity = String(fp * Math.min(1, eased));
-            fanEl.style.pointerEvents = fp > 0.5 ? "all" : "none";
+            fanEl.style.pointerEvents = !cleanViewRef.current && fp > 0.5 ? "all" : "none";
             if (isSelected) {
               fanEl.classList.add("post-dot-selected");
             } else {
@@ -759,6 +767,17 @@ export default function Globe({
       } else if (!pausedRef.current && !drag.isDragging) {
         drag.rotVel *= 0.92;
         spinGroup.rotation.y += drag.rotVel;
+      }
+      // Sync shared rotation ref for GlobeTimeline
+      if (rotationRef) rotationRef.current = spinGroup.rotation.y;
+      // Apply delta from GlobeTimeline drag
+      if (rotateDeltaRef && rotateDeltaRef.current !== 0) {
+        spinGroup.rotation.y += rotateDeltaRef.current;
+        drag.rotVel = rotateDeltaRef.current;
+        rotateDeltaRef.current = 0;
+        drag.autoRotate = false;
+        if (drag.arTimer) clearTimeout(drag.arTimer);
+        drag.arTimer = setTimeout(() => { drag.autoRotate = true; }, 3500);
       }
       renderer.render(scene, camera);
       drawOverlay();
@@ -960,8 +979,13 @@ export default function Globe({
       <canvas
         ref={overlayRef}
         className="fixed inset-0 w-full h-full pointer-events-none z-[5]"
+        style={{ opacity: cleanView ? 0 : 1, transition: "opacity 0.4s ease" }}
       />
-      <div ref={dotsRef} className="fixed inset-0 pointer-events-none z-[10]" />
+      <div
+        ref={dotsRef}
+        className="fixed inset-0 pointer-events-none z-[10]"
+        style={{ opacity: cleanView ? 0 : 1, transition: "opacity 0.4s ease" }}
+      />
     </>
   );
 }

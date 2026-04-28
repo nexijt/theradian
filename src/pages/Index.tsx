@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Moon, Sun, Edit2 } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Moon, Sun, Edit2, Eye, EyeOff } from "lucide-react";
 import Globe from "@/components/Globe";
 import MoonScene from "@/components/Moon";
 import AuthModal from "@/components/AuthModal";
@@ -7,6 +7,7 @@ import PostPanel from "@/components/PostPanel";
 import ClusterPanel from "@/components/ClusterPanel";
 import CreatePostSheet from "@/components/CreatePostSheet";
 import LandingOverlay from "@/components/LandingOverlay";
+import GlobeTimeline from "@/components/GlobeTimeline";
 import OrbitingMoon from "@/components/OrbitingMoon";
 import EditProfileModal from "@/components/EditProfileModal";
 import ProfileMenu from "@/components/ProfileMenu";
@@ -36,6 +37,22 @@ const Index = () => {
   const moonScene = useMoonScene(profile);
   const { toast } = useToast();
 
+  const globeRotationRef = useRef(0);
+  const globeRotateDeltaRef = useRef(0);
+
+  const [cleanView, setCleanView] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("radian-clean-view") === "1"
+  );
+
+  const toggleCleanView = () => {
+    setCleanView((prev) => {
+      const next = !prev;
+      localStorage.setItem("radian-clean-view", next ? "1" : "0");
+      return next;
+    });
+  };
+
+  const [timelineHovered, setTimelineHovered] = useState(false);
   const [authModal, setAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [createOpen, setCreateOpen] = useState(false);
@@ -129,6 +146,9 @@ const Index = () => {
           selectedPostId={selectedPost?.id}
           spinToLon={spinToLon}
           onVisiblePostsChange={handleVisiblePostsChange}
+          rotationRef={globeRotationRef}
+          rotateDeltaRef={globeRotateDeltaRef}
+          cleanView={cleanView}
         />
       </div>
 
@@ -166,7 +186,7 @@ const Index = () => {
             color: "hsl(var(--muted-foreground))",
             zIndex: 8,
             pointerEvents: "none",
-            opacity: sceneView === "moon" ? 1 : 0,
+            opacity: cleanView ? 0 : sceneView === "moon" ? 1 : 0,
             transition: "opacity 0.5s ease 0.9s",
           }}
         >
@@ -194,7 +214,7 @@ const Index = () => {
       )}
 
       {/* ── PROFILE CARD (moon view) ────────────────────────────────── */}
-      {moonMounted && (isVisiting ? visitedProfile : profile) && (() => {
+      {moonMounted && !cleanView && (isVisiting ? visitedProfile : profile) && (() => {
         const cardProfile = isVisiting ? visitedProfile! : profile!;
         const cardName = cardProfile.display_name || cardProfile.username;
         return (
@@ -262,8 +282,45 @@ const Index = () => {
         );
       })()}
 
+      {/* ── CLEAN VIEW TOGGLE (fixed, always present) ───────────────── */}
+      {/* Sits just below the dark mode button. 10px padding on the wrapper  */}
+      {/* extends the hover zone so the button fades in when mouse is "near". */}
+      {/* mobile:  nav py-3(12)+btn h-8(32)+6px gap = 50px from top, right=px-4(16px) */}
+      {/* desktop: nav py-5(20)+btn h-9(36)+6px gap = 62px from top, right=px-9(36px) */}
+      {/* We subtract the 10px padding from the container offset to compensate. */}
+      <div
+        className="fixed z-[200] group p-[10px] top-[40px] right-[6px] sm:top-[52px] sm:right-[26px]"
+        style={{ pointerEvents: "auto" }}
+      >
+        <button
+          onClick={toggleCleanView}
+          aria-label={cleanView ? "Exit clean view" : "Clean view"}
+          title={cleanView ? "Exit clean view" : "Clean view"}
+          className={[
+            "w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-sm",
+            "border border-border text-muted-foreground transition-all duration-300",
+            cleanView
+              ? "opacity-0 group-hover:opacity-50 hover:!opacity-100 hover:border-primary hover:text-primary"
+              : "hover:border-primary hover:text-primary",
+          ].join(" ")}
+        >
+          {cleanView ? (
+            <Eye className="w-3.5 h-3.5" />
+          ) : (
+            <EyeOff className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
+
       {/* ── NAV ────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-9 py-3 sm:py-5 z-50 pointer-events-none">
+      <nav
+        className="fixed top-0 left-0 right-0 flex items-center justify-between px-4 sm:px-9 py-3 sm:py-5 z-50 pointer-events-none"
+        style={{
+          opacity: cleanView ? 0 : 1,
+          pointerEvents: cleanView ? "none" : "auto",
+          transition: "opacity 0.4s ease",
+        }}
+      >
         <div className="flex flex-col">
           <span className="text-lg sm:text-xl font-light tracking-[0.28em] uppercase">
             THE RADIAN
@@ -337,7 +394,7 @@ const Index = () => {
       <div
         className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 font-mono text-[0.5rem] sm:text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground z-50 pointer-events-none whitespace-nowrap"
         style={{
-          opacity: sceneView === "earth" ? (showHint ? 1 : 0) : 1,
+          opacity: cleanView ? 0 : sceneView === "earth" ? (timelineHovered ? 0 : 1) : 1,
           transition: "opacity 0.6s ease",
         }}
       >
@@ -347,7 +404,10 @@ const Index = () => {
       </div>
 
       {/* ── LIVE COUNT ──────────────────────────────────────────────── */}
-      <div className="fixed bottom-6 sm:bottom-8 right-4 sm:right-8 z-50 flex items-center gap-2 pointer-events-none">
+      <div
+        className="fixed bottom-6 sm:bottom-8 right-4 sm:right-8 z-50 flex items-center gap-2 pointer-events-none"
+        style={{ opacity: cleanView ? 0 : 1, transition: "opacity 0.4s ease" }}
+      >
         <div
           className="w-[5px] h-[5px] bg-primary rounded-full"
           style={{ animation: "lp 2.5s ease-in-out infinite" }}
@@ -358,7 +418,10 @@ const Index = () => {
       </div>
 
       {/* ── STATUS ──────────────────────────────────────────────────── */}
-      <div className="fixed bottom-6 sm:bottom-8 left-4 sm:left-8 z-50 flex items-center gap-2 pointer-events-none">
+      <div
+        className="fixed bottom-6 sm:bottom-8 left-4 sm:left-8 z-50 flex items-center gap-2 pointer-events-none"
+        style={{ opacity: cleanView ? 0 : 1, transition: "opacity 0.4s ease" }}
+      >
         <div className="flex flex-col gap-1">
           {profile?.username && (
             <div className="flex items-center gap-2">
@@ -390,16 +453,18 @@ const Index = () => {
       </div>
 
       {/* ── POST PANEL ──────────────────────────────────────────────── */}
-      <PostPanel
-        post={activePost}
-        onClose={closeActivePost}
-        onNext={sceneView === "earth" ? handleNextPost : undefined}
-        onPrev={sceneView === "earth" ? handlePrevPost : undefined}
-        onUserClick={handleUserClick}
-      />
+      {!cleanView && (
+        <PostPanel
+          post={activePost}
+          onClose={closeActivePost}
+          onNext={sceneView === "earth" ? handleNextPost : undefined}
+          onPrev={sceneView === "earth" ? handlePrevPost : undefined}
+          onUserClick={handleUserClick}
+        />
+      )}
 
       {/* ── ORBITING MOON BUTTON ────────────────────────────────────── */}
-      {user && profile?.username && (
+      {user && profile?.username && !cleanView && (
         <div
           style={{
             opacity: sceneView === "earth" ? 1 : 0,
@@ -460,11 +525,22 @@ const Index = () => {
       )}
 
       {/* ── CLUSTER PANEL ───────────────────────────────────────────── */}
-      <ClusterPanel
-        posts={clusterPanelPosts}
-        onClose={() => setClusterPanelPosts(null)}
-        onPostClick={onPostClick}
-      />
+      {!cleanView && (
+        <ClusterPanel
+          posts={clusterPanelPosts}
+          onClose={() => setClusterPanelPosts(null)}
+          onPostClick={onPostClick}
+        />
+      )}
+
+      {/* ── GLOBE TIMELINE ──────────────────────────────────────────── */}
+      {sceneView === "earth" && !cleanView && (
+        <GlobeTimeline
+          rotationRef={globeRotationRef}
+          rotateDeltaRef={globeRotateDeltaRef}
+          onHoverChange={setTimelineHovered}
+        />
+      )}
 
       {/* ── LANDING OVERLAY ─────────────────────────────────────────── */}
       <LandingOverlay open={landingOpen} onEnter={dismissLanding} />
